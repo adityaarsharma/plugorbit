@@ -97,18 +97,19 @@ module.exports = defineConfig({
       },
       testMatch: '**/flows/**/*.spec.js',
       dependencies: ['setup'],
+      preserveOutput: 'always',
     },
 
-    // ── Page Builder widget QA — widget-by-widget testing ──
+    // ── Elementor widget QA — widget-by-widget testing ──
     {
-      name: 'Page Builder-widgets',
+      name: 'elementor-widgets',
       use: {
         ...devices['Desktop Chrome'],
         storageState: AUTH_FILE,
         video: { mode: 'on', size: { width: 1440, height: 900 } },
         screenshot: 'on',
       },
-      testMatch: '**/Page Builder/**/*.spec.js',
+      testMatch: '**/elementor/**/*.spec.js',
       dependencies: ['setup'],
     },
   ],

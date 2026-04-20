@@ -5,7 +5,7 @@
 #
 # Usage:
 #   bash scripts/pull-plugins.sh              # uses qa.config.json
-#   bash scripts/pull-plugins.sh --slugs "plugin-b,jetpack,plugin-b"
+#   bash scripts/pull-plugins.sh --slugs "elementor,jetpack,yoast-seo"
 
 set -e
 
@@ -38,7 +38,7 @@ fi
 
 if [ -z "$SLUGS" ]; then
   echo -e "${RED}No slugs specified and qa.config.json not found.${NC}"
-  echo "Usage: $0 --slugs \"plugin-b,jetpack,plugin-b\""
+  echo "Usage: $0 --slugs \"elementor,jetpack,yoast-seo\""
   exit 1
 fi
 

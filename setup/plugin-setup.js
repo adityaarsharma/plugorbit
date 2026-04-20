@@ -6,13 +6,13 @@
  * to run to put the plugin in a "real user has configured this" state.
  *
  * Usage:
- *   node setup/plugin-setup.js --plugin plugin-b
  *   node setup/plugin-setup.js --plugin plugin-a
+ *   node setup/plugin-setup.js --plugin plugin-b
  *   node setup/plugin-setup.js --all
  *
  * Or from playwright globalSetup:
  *   const { runSetup } = require('./setup/plugin-setup.js');
- *   await runSetup('plugin-b');
+ *   await runSetup('plugin-a');
  */
 
 const { execSync } = require('child_process');
@@ -58,7 +58,7 @@ async function runSetup(slug) {
     }
   }
 
-  // 2. User meta (e.g. custom plugin role capabilities)
+  // 2. User meta (e.g. custom role capabilities)
   if (config.user_meta) {
     for (const [userId, meta] of Object.entries(config.user_meta)) {
       for (const [key, value] of Object.entries(meta)) {

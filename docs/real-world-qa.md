@@ -137,7 +137,7 @@ Audit my plugin for multisite compatibility:
 ## 4. Plugin Conflicts — Interoperability
 
 ### What breaks
-Your plugin works alone. User activates it alongside WooCommerce / Page Builder / plugin-b / WPML → crashes.
+Your plugin works alone. User activates it alongside WooCommerce / Elementor / Yoast / WPML → crashes.
 
 ### How Orbit catches it
 
@@ -148,7 +148,7 @@ Extend `.wp-env.json` with top conflicters:
   "plugins": [
     "/path/to/my-plugin",
     "https://downloads.wordpress.org/plugin/woocommerce.zip",
-    "https://downloads.wordpress.org/plugin/Page Builder.zip",
+    "https://downloads.wordpress.org/plugin/elementor.zip",
     "https://downloads.wordpress.org/plugin/wordpress-seo.zip"
   ]
 }
@@ -159,7 +159,7 @@ Run gauntlet. If it passes with these active, you're probably safe.
 ### Skill for this
 ```
 /wordpress-plugin-development
-Review my plugin for conflict risks with popular plugins (WooCommerce, Page Builder, plugin-b, WPML, Plugin B).
+Review my plugin for conflict risks with popular plugins (WooCommerce, Elementor, Yoast, WPML, Rank Math).
 Check: hook priority clashes, class name collisions, enqueue handle conflicts, filter return type mismatches.
 ```
 
@@ -552,7 +552,7 @@ Run the "real-world QA" audit on my plugin at ~/plugins/my-plugin:
 1. Uninstall cleanup (options, tables, cron, caps)
 2. Upgrade path from v1 → current
 3. Multisite compatibility
-4. Plugin conflicts (WC, Page Builder, plugin-b)
+4. Plugin conflicts (WC, Elementor, Yoast)
 5. GDPR export + erase handlers
 6. REST endpoint permissions
 7. File upload safety

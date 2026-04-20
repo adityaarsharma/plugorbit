@@ -1,5 +1,5 @@
 # Pre-Release Checklist
-> Run every item before tagging a release for Plugin A, Plugin A, or any the team plugin.
+> Run every item before tagging a release for The Plus Addons, NexterWP, or any POSIMYTH plugin.
 
 ---
 
@@ -55,14 +55,14 @@
 
 - [ ] Tested on PHP 7.4, 8.0, 8.1, 8.2
 - [ ] Tested on WordPress latest - 1 version
-- [ ] Tested with conflicting plugins active: Plugin B, plugin-b, WooCommerce, Page Builder
+- [ ] Tested with conflicting plugins active: Rank Math, Yoast, WooCommerce, Elementor
 - [ ] No fatal errors with `WP_DEBUG=true`
 
 ## Release Process
 
 - [ ] Branch: `release/vX.Y.Z` (never push directly to main)
 - [ ] GitHub Actions: all checks green
-- [ ] Plugin zip: root folder is correct name (e.g. `the-plus-addons-for-Page Builder/`)
+- [ ] Plugin zip: root folder is correct name (e.g. `the-plus-addons-for-elementor/`)
 - [ ] Zip tested: fresh install → activate → spot-check
 - [ ] Release notes written (non-technical, user-focused)
 

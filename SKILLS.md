@@ -183,12 +183,12 @@ Profile frontend assets shipped by [path]:
 - Font loading strategy (preload, font-display)
 ```
 
-### 5. Performance — Page Builder Editor (UI Editor Perf)
+### 5. Performance — Elementor Editor (UI Editor Perf)
 
 ```
 /performance-engineer
-Profile the Page Builder editor experience when my addon [path] is active:
-- Time to editor ready (window.Page Builder ready)
+Profile the Elementor editor experience when my addon [path] is active:
+- Time to editor ready (window.elementor ready)
 - Time to widget panel populated
 - Widget insert → render latency per widget
 - Memory growth after inserting 20 widgets
@@ -242,7 +242,7 @@ Review the admin panel and widget settings UI in [path]:
 ```
 /antigravity-skill-orchestrator
 Run a complete pre-release quality check on my WordPress plugin at [path].
-I need: security audit + performance review + UI/UX check + database optimization + coding standards + Page Builder editor perf.
+I need: security audit + performance review + UI/UX check + database optimization + coding standards + Elementor editor perf.
 Orchestrate the right skills in the right order and give me a prioritized findings report.
 ```
 
@@ -280,7 +280,7 @@ Output a test plan with file:line pointers for new test cases.
 Execute the "QA and Browser Automation" workflow for my WordPress plugin.
 Plugin path: [path]
 Test site: http://localhost:8881
-Run through: admin panel, frontend rendering, Page Builder editor, responsive viewports.
+Run through: admin panel, frontend rendering, Elementor editor, responsive viewports.
 Use Playwright MCP for browser control.
 ```
 
@@ -293,7 +293,7 @@ Full UAT against http://localhost:8881 for plugin [path]:
 - Error console monitoring
 ```
 
-### 11. Theme Review (Plugin A-style)
+### 11. Theme Review (NexterWP-style)
 
 ```
 /wordpress-theme-development
@@ -400,7 +400,7 @@ claude "/wordpress-penetration-testing Audit ~/plugins/my-plugin for all OWASP T
 # Performance — backend
 claude "/performance-engineer Find all N+1 queries and caching issues in ~/plugins/my-plugin/includes/"
 
-# Performance — Page Builder editor
+# Performance — Elementor editor
 claude "/performance-engineer Profile editor startup time for ~/plugins/my-plugin using tests/playwright/editor-perf results"
 
 # Admin UI review

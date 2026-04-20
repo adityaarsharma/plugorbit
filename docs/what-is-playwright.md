@@ -141,7 +141,7 @@ Every template in `tests/playwright/templates/` checks:
 | Visual snapshot matches baseline | Unintended design change |
 
 Per-plugin-type templates add more:
-- **page builder addon**: widget panel discovery, editor render, frontend widget output
+- **Elementor addon**: widget panel discovery, editor render, frontend widget output
 - **Gutenberg block**: inserter, save + reload, block.json validity
 - **SEO plugin**: meta tags, sitemap, schema, Open Graph
 - **WooCommerce extension**: shop page, cart, checkout flow

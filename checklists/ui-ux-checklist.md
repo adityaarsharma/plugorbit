@@ -62,9 +62,9 @@ Run this checklist before every release for admin panels, widget settings, and b
 
 ---
 
-## Product-Specific: Page Builder Widget Panels (Plugin A)
+## Product-Specific: Elementor Widget Panels (TPA)
 
-- [ ] **Widget settings panel doesn't overflow** on narrow Page Builder sidebar (320px wide).
+- [ ] **Widget settings panel doesn't overflow** on narrow Elementor sidebar (320px wide).
 - [ ] **Section tabs navigable by keyboard** (Tab key cycles through).
 - [ ] **Responsive controls labeled clearly** — Desktop/Tablet/Mobile icons are present for all size/spacing controls.
 - [ ] **Color pickers use correct defaults** — not empty/blank on first use.
@@ -72,7 +72,7 @@ Run this checklist before every release for admin panels, widget settings, and b
 
 ---
 
-## Product-Specific: Gutenberg Block Panels (Plugin A)
+## Product-Specific: Gutenberg Block Panels (NexterWP)
 
 - [ ] **Block controls in correct Inspector section** — Style, Settings, Advanced tabs used correctly.
 - [ ] **Block doesn't break on empty/default state** — no white-screen with zero content.

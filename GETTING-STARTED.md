@@ -118,7 +118,7 @@ bash setup/init.sh
 Answers it'll ask:
 1. **Plugin name** — e.g. `My Awesome Plugin`
 2. **Plugin slug** — auto-derived, or override
-3. **Plugin type** — 1–7 (Page Builder addon / Gutenberg / SEO / Woo / theme / general / page-builder)
+3. **Plugin type** — 1–7 (Elementor addon / Gutenberg / SEO / Woo / theme / general / page-builder)
 4. **Plugin source path** — e.g. `~/plugins/my-awesome-plugin`
 5. **wp-env port** — default `8881`
 6. **Competitors** — comma-separated wordpress.org slugs (optional but recommended)
@@ -303,7 +303,7 @@ The superpower layer. Every skill in [SKILLS.md](SKILLS.md). Examples:
 # Security audit
 claude "/wordpress-penetration-testing Audit ~/plugins/my-plugin for OWASP Top 10"
 
-# Performance — Page Builder editor
+# Performance — Elementor editor
 bash scripts/editor-perf.sh
 claude "/performance-engineer Analyze reports/editor-perf-*.json for widgets >800ms"
 

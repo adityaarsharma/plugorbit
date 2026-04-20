@@ -339,20 +339,20 @@ Every modern block must have a `block.json` file. Using `register_block_type( __
 
 ---
 
-## page builder-Specific Mistakes
+## Elementor-Specific Mistakes
 
-### 16. Not Checking page builder Version
+### 16. Not Checking Elementor Version
 
 ```php
-// BAD — crashes if page builder not active or old version
-use page builder\Widget_Base;
+// BAD — crashes if Elementor not active or old version
+use Elementor\Widget_Base;
 
 // GOOD
-if ( ! did_action( 'page builder/loaded' ) ) {
+if ( ! did_action( 'elementor/loaded' ) ) {
     return;
 }
 
-add_action( 'page builder/widgets/register', function( $widgets_manager ) {
+add_action( 'elementor/widgets/register', function( $widgets_manager ) {
     // Register widgets here
 });
 ```
@@ -360,11 +360,11 @@ add_action( 'page builder/widgets/register', function( $widgets_manager ) {
 ### 17. Registering Widgets on Wrong Hook
 
 ```php
-// BAD — too early, page builder not ready
+// BAD — too early, Elementor not ready
 add_action( 'init', 'register_my_widgets' );
 
 // GOOD
-add_action( 'page builder/widgets/register', 'register_my_widgets' );
+add_action( 'elementor/widgets/register', 'register_my_widgets' );
 ```
 
 ---
@@ -383,4 +383,4 @@ add_action( 'page builder/widgets/register', 'register_my_widgets' );
 | Hardcoded paths | phpcs WPCS sniffs | `/wordpress-plugin-development` |
 | No cleanup on uninstall | `/wordpress-plugin-development` | Pre-release checklist |
 | Missing block.json | `/wordpress-plugin-development` | Code review |
-| page builder wrong hook | Playwright editor test | `/wordpress-plugin-development` |
+| Elementor wrong hook | Playwright editor test | `/wordpress-plugin-development` |

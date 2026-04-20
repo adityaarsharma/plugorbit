@@ -304,8 +304,8 @@ if [ "$MODE" = "full" ]; then
   PLUGIN_TYPE=$(python3 -c "import json; print(json.load(open('qa.config.json'))['plugin']['type'])" 2>/dev/null || echo "general")
   WP_PERF_URL="${WP_TEST_URL:-http://localhost:8881}"
 
-  # Editor performance (Page Builder or Gutenberg editor load time)
-  if [ "$PLUGIN_TYPE" = "Page Builder-addon" ] || [ "$PLUGIN_TYPE" = "gutenberg-blocks" ]; then
+  # Editor performance (Elementor or Gutenberg editor load time)
+  if [ "$PLUGIN_TYPE" = "elementor-addon" ] || [ "$PLUGIN_TYPE" = "gutenberg-blocks" ]; then
     if [ -f "scripts/editor-perf.sh" ]; then
       EDITOR_REPORT="reports/editor-perf-$TIMESTAMP.json"
       REPORT_PATH="$EDITOR_REPORT" bash scripts/editor-perf.sh \
@@ -440,7 +440,7 @@ echo "  HTML report:  $(pwd)/reports/playwright-html/index.html"
 echo "  Screenshots:  $(pwd)/reports/screenshots/"
 echo "  Videos:       $(pwd)/reports/videos/"
 [ -d "reports/skill-audits" ] && echo "  Skill audits: $(pwd)/reports/skill-audits/"
-[ -f "reports/Plugin A-VS-Plugin B-UAT.html" ] && echo "  Compare UAT:  $(pwd)/reports/Plugin A-VS-Plugin B-UAT.html"
+[ -f "reports/NEXTER-VS-RANKMATH-UAT.html" ] && echo "  Compare UAT:  $(pwd)/reports/NEXTER-VS-RANKMATH-UAT.html"
 echo ""
 echo -e "${CYAN}Open HTML report:${NC}  npx playwright show-report reports/playwright-html"
 echo -e "${CYAN}Open skill audits:${NC} open reports/skill-audits/"

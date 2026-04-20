@@ -1,6 +1,6 @@
 # Deep Performance — Beyond Lighthouse
 
-Lighthouse scores the final rendered page. Orbit goes deeper — into your **backend hooks**, **frontend bundle waste**, and the **editor experience** (page builder, Gutenberg). Lighthouse says "your page is slow." These tools tell you **which line of code is slow**.
+Lighthouse scores the final rendered page. Orbit goes deeper — into your **backend hooks**, **frontend bundle waste**, and the **editor experience** (Elementor, Gutenberg). Lighthouse says "your page is slow." These tools tell you **which line of code is slow**.
 
 ---
 
@@ -146,16 +146,16 @@ Suggest splits, defers, and removals with estimated size savings.
 
 ---
 
-## 3. page builder Editor Performance
+## 3. Elementor Editor Performance
 
-This is where most page builder addon bugs live — editor feels slow, widgets lag to insert, panel freezes when you have 50 widgets.
+This is where most Elementor addon bugs live — editor feels slow, widgets lag to insert, panel freezes when you have 50 widgets.
 
 ### What to Measure
 
 | Metric | Good | Bad | How to Measure |
 |---|---|---|---|
-| **Editor ready time** | < 3s | > 6s | `window.page builder` ready event |
-| **Widget panel populated** | < 500ms after ready | > 1.5s | `page builder.panel` events |
+| **Editor ready time** | < 3s | > 6s | `window.elementor` ready event |
+| **Widget panel populated** | < 500ms after ready | > 1.5s | `elementor.panel` events |
 | **Widget insert → render** | < 300ms | > 800ms | Drag-drop then MutationObserver |
 | **Memory after 20 widgets** | < 100MB growth | > 250MB | `performance.memory.usedJSHeapSize` |
 | **Console spam** | 0 messages from your plugin | Any | `console.on("*")` filter |
@@ -167,7 +167,7 @@ bash scripts/editor-perf.sh
 ```
 
 This Playwright harness:
-1. Opens `http://localhost:8881/wp-admin/post-new.php?post_type=page` in page builder mode
+1. Opens `http://localhost:8881/wp-admin/post-new.php?post_type=page` in Elementor mode
 2. Times every phase from page load → widget panel ready
 3. Inserts each of your plugin's widgets and times the render
 4. Measures memory growth
@@ -194,7 +194,7 @@ Any `insertMs > 800` or `memoryMB > 30` per widget is a red flag.
 
 ```
 /performance-engineer
-Analyze page builder editor perf for plugin [path].
+Analyze Elementor editor perf for plugin [path].
 Input: reports/editor-perf-*.json
 
 For each slow widget (>800ms insert):
@@ -262,7 +262,7 @@ wp-env run cli wp profile stage --all                # if wp-cli-profile install
 npx source-map-explorer ~/plugins/my-plugin/assets/js/*.js
 purgecss --css ~/plugins/my-plugin/assets/css/*.css --content http://localhost:8881
 
-# 4. Editor perf (page builder)
+# 4. Editor perf (Elementor)
 bash scripts/editor-perf.sh
 
 # 5. Claude Code orchestrated analysis

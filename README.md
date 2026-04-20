@@ -20,7 +20,7 @@
 
 **👨‍💻 Dev** → zero-regression releases &nbsp;·&nbsp; **🧪 QA** → structured test coverage &nbsp;·&nbsp; **📊 PM** → flow maps + complexity scores &nbsp;·&nbsp; **🎨 Designer** → visual diffs + UI audits &nbsp;·&nbsp; **👤 End User** → real browser, real flows
 
-Covers **Page Builder Addons · Gutenberg Blocks · SEO Plugins · WooCommerce Extensions · Themes**
+Covers **Elementor Addons · Gutenberg Blocks · SEO Plugins · WooCommerce Extensions · Themes**
 
 <br />
 
@@ -39,14 +39,14 @@ One command and you get:
 - ✅ Real WordPress + real MySQL running in Docker (fully scripted, no GUI clicks)
 - ✅ PHP lint + WordPress Coding Standards + VIP + PHPStan (catches bugs before they run)
 - ✅ Playwright E2E tests + visual regression + a11y (catches bugs before users see them)
-- ✅ Lighthouse + custom perf harness for Page Builder/Gutenberg editor (catches slow code)
+- ✅ Lighthouse + custom perf harness for Elementor/Gutenberg editor (catches slow code)
 - ✅ DB query profiling with Query Monitor + `performance_schema` (catches N+1s)
 - ✅ Competitor analysis from wordpress.org (catches when you fall behind)
 - ✅ Claude Code skill integration — 30+ `/slash` commands for AI-assisted audit (catches what humans miss)
 - ✅ PM flow mapping — click-depth, wizard detection, complexity scoring per feature vs competitors
 - ✅ Designer layer — pixel-diff visual regression across admin, editor, and frontend at every viewport
 - ✅ Mass parallel mode — test 5 plugins at once on your own Mac, CPU-throttled
-- ✅ Zero hardcoding — works for any WP plugin type (Page Builder, Gutenberg, SEO, WooCommerce, themes)
+- ✅ Zero hardcoding — works for any WP plugin type (Elementor, Gutenberg, SEO, WooCommerce, themes)
 
 **The outcome**: every release goes through the same scrutiny as if a Dev, QA engineer, PM, Designer, and beta tester all signed off — automated.
 
@@ -62,7 +62,7 @@ Today it's WordPress-focused because that's where the problem is clearest: plugi
 
 The same problem exists everywhere software gets built and shipped without a proper UAT layer. Orbit is designed to grow with that.
 
-**For now**: WordPress plugins — Page Builder addons, Gutenberg blocks, SEO plugins, WooCommerce extensions, themes.
+**For now**: WordPress plugins — Elementor addons, Gutenberg blocks, SEO plugins, WooCommerce extensions, themes.
 
 **The discipline that powers it**: Dev signs off on code. QA signs off on function. PM signs off on flows and complexity. Designer signs off on visuals. All automated. All from one config file.
 
@@ -84,7 +84,7 @@ UAT (User Acceptance Testing) is the practice of validating a product from every
 - Automattic/WordPress VIP run every commit through PHP linting + VIP coding standards before merge
 - 10up uses AI-powered visual regression testing — catching when something *looks* different without being *technically* broken
 - WordPress.org plugin team added 15+ automated security checks in 2025 alone
-- Leading Page Builder addon teams run Playwright E2E suites across 3 WP versions before release
+- Leading Elementor addon teams run Playwright E2E suites across 3 WP versions before release
 
 Orbit brings that same discipline to any plugin team, with a single command.
 
@@ -146,7 +146,7 @@ No commands to memorize — read `reports/qa-report-{timestamp}.md` after every 
 | Layer | What It Validates | Tools | Time |
 |---|---|---|---|
 | **User Flow Mapping** | Can a real user find and complete every core action? | Playwright journeys spec | 3min |
-| **Click Depth Scoring** | How many clicks to reach key features? (plugin-b: 2, yours: ?) | Journey tests with click counter | 1min |
+| **Click Depth Scoring** | How many clicks to reach key features? (Yoast: 2, yours: ?) | Journey tests with click counter | 1min |
 | **Wizard / Onboarding Detection** | Does first-time setup exist and work? | Flow spec journey 1 | 1min |
 | **Confusion Scoring** | Tab count × input count × toggle count — complexity index | Audit spec | 1min |
 | **No PHP/JS Errors to User** | Zero fatal errors, zero unhandled JS errors reaching the DOM | Playwright console + body scan | 1min |
@@ -164,7 +164,7 @@ bash setup/init.sh
 ```
 
 `init.sh` asks you 9 questions and creates `qa.config.json`:
-- What type of plugin (Page Builder addon / Gutenberg / SEO / WooCommerce / Theme)?
+- What type of plugin (Elementor addon / Gutenberg / SEO / WooCommerce / Theme)?
 - Where is your source code?
 - Who are your competitors? (auto-downloads and analyzes them)
 - Do you have a Pro version to compare?
@@ -300,7 +300,7 @@ bash scripts/changelog-test.sh --changelog ~/plugins/the-plus-addons/CHANGELOG.m
 # Output: per-change test suggestions
 # [NEW FEATURE] Added Mega Menu widget
 #   → Test: Create a test page with Mega Menu → verify renders
-#   → Test: Page Builder editor → search "Mega Menu" → verify in panel
+#   → Test: Elementor editor → search "Mega Menu" → verify in panel
 # [PERFORMANCE] Reduced DB queries on homepage
 #   → Run: db-profile.sh and compare query count
 # [SECURITY] Added nonce verification to AJAX handler
@@ -316,7 +316,7 @@ Download and analyze competitor plugins automatically:
 bash scripts/competitor-compare.sh
 
 # Or explicit
-bash scripts/competitor-compare.sh --competitors "essential-addons-for-Page Builder-free,premium-addons-for-Page Builder"
+bash scripts/competitor-compare.sh --competitors "essential-addons-for-elementor-free,premium-addons-for-elementor"
 ```
 
 What it pulls from each competitor:
@@ -439,28 +439,28 @@ Every failure gets a screenshot + video + trace automatically.
 
 ### What Each Test File Checks
 
-**`Plugin A/core.spec.js`** — Plugin A core:
+**`tpa/core.spec.js`** — The Plus Addons core:
 - Admin settings page loads without PHP fatal errors
-- Page Builder editor loads with Plugin A panel visible
-- Plugin A widgets appear when searching in Page Builder
-- Frontend page has zero JS console errors from Plugin A code
+- Elementor editor loads with TPA panel visible
+- TPA widgets appear when searching in Elementor
+- Frontend page has zero JS console errors from TPA code
 - No broken images on test pages
 - Page loads under 4 seconds
 - axe-core WCAG 2.1 AA accessibility scan
 - Visual regression screenshots (homepage + test page)
 
-**`Plugin A/responsive.spec.js`** — Responsive quality:
+**`tpa/responsive.spec.js`** — Responsive quality:
 - No horizontal scroll at 375px, 768px, 1440px
 - Mobile hamburger menu opens and shows navigation
 - All interactive elements ≥ 44×44px (touch target size)
 - Per-viewport visual snapshots
 
-**`Plugin A/core.spec.js`** — Plugin A theme + blocks + extension:
+**`nexterwp/core.spec.js`** — NexterWP theme + blocks + extension:
 - Theme active, no critical admin notices
 - WordPress Customizer loads cleanly
-- Plugin A Blocks visible in Gutenberg block inserter
-- Plugin A Blocks + Extension admin pages load without errors
-- Homepage zero JS errors from Plugin A code
+- Nexter Blocks visible in Gutenberg block inserter
+- Nexter Blocks + Extension admin pages load without errors
+- Homepage zero JS errors from Nexter code
 - Header builder and footer render
 - Single post template renders correctly
 - No horizontal overflow at any viewport
@@ -575,7 +575,7 @@ purgecss --css path/to/plugin/assets/css/frontend.css --content http://localhost
 
 Shows which files/selectors are shipped but unused.
 
-### 3. Editor Performance — Page Builder + Gutenberg
+### 3. Editor Performance — Elementor + Gutenberg
 
 Most addon bugs live here: editor feels slow, widgets lag, panel freezes. Orbit has a dedicated harness:
 
@@ -619,7 +619,7 @@ Orbit runs **locally, on demand, from Claude Code**. No GitHub Actions, no serve
 ## Adding Tests for Your Plugin
 
 1. Create: `tests/playwright/your-plugin/core.spec.js`
-2. Copy structure from `tests/playwright/Plugin A/core.spec.js`
+2. Copy structure from `tests/playwright/tpa/core.spec.js`
 3. Replace admin URLs and CSS selectors with your plugin's
 4. Create a test site: `bash scripts/create-test-site.sh --plugin ~/plugins/your-plugin --port 8881`
 5. Run: `WP_TEST_URL=http://your-plugin.local npx playwright test tests/playwright/your-plugin/`
@@ -686,7 +686,7 @@ Summary: 6 passed · 1 warning · 0 failed
 - [Real-World QA Cases](docs/real-world-qa.md) — 18 cases most checklists miss (uninstall, upgrade, multisite, GDPR, REST, etc.)
 - [wp-env Setup](docs/wp-env-setup.md) — fully automated WP test sites, Docker-based
 - [Database Profiling Guide](docs/database-profiling.md) — Query Monitor, N+1 fixes, `performance_schema`
-- [Deep Performance Guide](docs/deep-performance.md) — backend hooks, frontend bundle, Page Builder editor perf
+- [Deep Performance Guide](docs/deep-performance.md) — backend hooks, frontend bundle, Elementor editor perf
 - [Common WordPress Mistakes](docs/common-wp-mistakes.md) — what this pipeline catches automatically
 - [Power Tools Guide](docs/power-tools.md) — Claude Mem, Rector, Psalm, WPScan, and more
 - [Skill Commands Reference](SKILLS.md) — every Claude Code skill, with Antigravity attribution
@@ -757,13 +757,13 @@ orbit/
 │   ├── auth.setup.js               # Save admin cookies once
 │   ├── templates/                  # Copy these for your plugin
 │   │   ├── generic-plugin/
-│   │   ├── Page Builder-addon/
+│   │   ├── elementor-addon/
 │   │   ├── gutenberg-block/
 │   │   ├── seo-plugin/
 │   │   ├── woocommerce/
 │   │   └── theme/
-│   ├── Plugin A/                        # Real example: Page Builder addon
-│   └── Plugin A/                   # Real example: theme + blocks
+│   ├── tpa/                        # Real example: Elementor addon
+│   └── nexterwp/                   # Real example: theme + blocks
 ├── config/
 │   ├── phpcs.xml                   # WPCS + VIP + PHPCompatibility rules
 │   ├── phpstan.neon                # Level 5 static analysis
@@ -777,7 +777,7 @@ orbit/
 │   ├── compare-versions.sh         # Version A vs B diff
 │   ├── competitor-compare.sh       # Analyze competitor plugin zips
 │   ├── db-profile.sh               # Query count + slow query profiling
-│   └── editor-perf.sh              # Page Builder/Gutenberg editor load + widget-insert timing
+│   └── editor-perf.sh              # Elementor/Gutenberg editor load + widget-insert timing
 ├── checklists/
 │   ├── pre-release-checklist.md
 │   ├── ui-ux-checklist.md

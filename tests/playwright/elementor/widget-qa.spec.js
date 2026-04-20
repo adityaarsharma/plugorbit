@@ -1,5 +1,5 @@
 /**
- * Orbit — Page Builder Widget QA
+ * Orbit — Elementor Widget QA
  *
  * Tests every widget defined in qa.config.json → plugin.widgets[]
  * For each widget: find in panel → insert → screenshot editor → screenshot frontend → responsive → JS errors
@@ -7,20 +7,20 @@
  * Also runs competitor comparison when qa.config.json → competitors[] is set.
  *
  * Usage:
- *   npx playwright test tests/playwright/Page Builder/ --project=Page Builder-widgets
- *   WP_TEST_URL=http://localhost:8881 npx playwright test tests/playwright/Page Builder/ --project=Page Builder-widgets
+ *   npx playwright test tests/playwright/elementor/ --project=elementor-widgets
+ *   WP_TEST_URL=http://localhost:8881 npx playwright test tests/playwright/elementor/ --project=elementor-widgets
  *
  * qa.config.json shape this spec reads:
  * {
  *   "plugin": {
- *     "name": "Plugin A",
+ *     "name": "The Plus Addons",
  *     "widgets": [
  *       { "name": "Mega Menu", "category": "navigation", "searchTerm": "mega" },
  *       { "name": "Team Member", "category": "creative", "searchTerm": "team" }
  *     ]
  *   },
  *   "testPageUrl": "http://localhost:8881/orbit-test-page/",
- *   "competitors": ["elementkit", "happy-Page Builder-addons"]
+ *   "competitors": ["elementkit", "happy-elementor-addons"]
  * }
  */
 const { test, expect } = require('@playwright/test');
@@ -29,7 +29,7 @@ const path = require('path');
 
 const BASE   = process.env.WP_TEST_URL || 'http://localhost:8881';
 const ADMIN  = `${BASE}/wp-admin`;
-const SNAP_DIR = path.join(__dirname, '../../../reports/screenshots/Page Builder');
+const SNAP_DIR = path.join(__dirname, '../../../reports/screenshots/elementor');
 const VIDEO_DIR = path.join(__dirname, '../../../reports/videos');
 
 fs.mkdirSync(SNAP_DIR, { recursive: true });
@@ -43,7 +43,7 @@ const PLUGIN_SLUG  = cfg.plugin?.slug   || '';
 const WIDGETS      = cfg.plugin?.widgets || [];
 const TEST_PAGE    = cfg.testPageUrl    || `${BASE}/?p=1`;
 
-// Helper: save screenshot to reports/screenshots/Page Builder/
+// Helper: save screenshot to reports/screenshots/elementor/
 async function snap(page, name) {
   const safe = name.replace(/[^a-z0-9-]/gi, '-').toLowerCase();
   const filePath = path.join(SNAP_DIR, `${safe}.png`);
@@ -51,18 +51,18 @@ async function snap(page, name) {
   return filePath;
 }
 
-// Helper: wait for Page Builder editor to be ready (avoids networkidle timeout)
+// Helper: wait for Elementor editor to be ready (avoids networkidle timeout)
 async function waitForElementor(page) {
   await page.waitForLoadState('domcontentloaded');
-  // Wait for Page Builder panel to appear
-  await page.waitForSelector('.Page Builder-panel, #Page Builder-panel', { timeout: 30000 }).catch(() => {});
+  // Wait for Elementor panel to appear
+  await page.waitForSelector('.elementor-panel, #elementor-panel', { timeout: 30000 }).catch(() => {});
   await page.waitForTimeout(2000);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Editor: Panel Presence
 // ─────────────────────────────────────────────────────────────────────────────
-test.describe('Page Builder Editor — Panel', () => {
+test.describe('Elementor Editor — Panel', () => {
   test('editor loads and plugin panel is visible', async ({ page }) => {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
@@ -71,22 +71,22 @@ test.describe('Page Builder Editor — Panel', () => {
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(2000);
 
-    // Click "Edit with Page Builder" if present
-    const editBtn = page.locator('a:has-text("Edit with Page Builder"), #Page Builder-switch-mode-button');
+    // Click "Edit with Elementor" if present
+    const editBtn = page.locator('a:has-text("Edit with Elementor"), #elementor-switch-mode-button');
     if (await editBtn.count() > 0) {
       await editBtn.first().click();
       await waitForElementor(page);
     } else {
-      // Already in Page Builder editor
+      // Already in Elementor editor
       await waitForElementor(page);
     }
 
-    const panel = page.locator('.Page Builder-panel, #Page Builder-panel');
+    const panel = page.locator('.elementor-panel, #elementor-panel');
     const panelExists = await panel.count();
 
     await snap(page, 'editor-panel-loaded');
 
-    expect(panelExists, 'Page Builder panel should exist').toBeGreaterThan(0);
+    expect(panelExists, 'Elementor panel should exist').toBeGreaterThan(0);
     expect(errors, `JS errors on editor load:\n${errors.join('\n')}`).toHaveLength(0);
   });
 
@@ -99,14 +99,14 @@ test.describe('Page Builder Editor — Panel', () => {
     await page.goto(`${ADMIN}/post-new.php?post_type=page`);
     await waitForElementor(page);
 
-    const editBtn = page.locator('#Page Builder-switch-mode-button, a:has-text("Edit with Page Builder")');
+    const editBtn = page.locator('#elementor-switch-mode-button, a:has-text("Edit with Elementor")');
     if (await editBtn.count() > 0) {
       await editBtn.first().click();
       await waitForElementor(page);
     }
 
     // Open widget panel (click the + add elements button)
-    const addBtn = page.locator('.Page Builder-add-section-area-button, .Page Builder-add-section-button, button[aria-label*="Add"]').first();
+    const addBtn = page.locator('.elementor-add-section-area-button, .elementor-add-section-button, button[aria-label*="Add"]').first();
     if (await addBtn.isVisible().catch(() => false)) {
       await addBtn.click();
       await page.waitForTimeout(500);
@@ -114,12 +114,12 @@ test.describe('Page Builder Editor — Panel', () => {
 
     // Search for the first widget
     const firstWidget = WIDGETS[0];
-    const searchInput = page.locator('.Page Builder-search-input, input[placeholder*="Search"]').first();
+    const searchInput = page.locator('.elementor-search-input, input[placeholder*="Search"]').first();
     if (await searchInput.isVisible().catch(() => false)) {
       await searchInput.fill(firstWidget.searchTerm || firstWidget.name);
       await page.waitForTimeout(1000);
 
-      const results = await page.locator('.Page Builder-element-wrapper, .Page Builder-widget-title').count();
+      const results = await page.locator('.elementor-element-wrapper, .elementor-widget-title').count();
       await snap(page, `panel-search-${firstWidget.name}`);
       expect(results, `Search for "${firstWidget.name}" returned no widgets`).toBeGreaterThan(0);
     }
@@ -131,17 +131,17 @@ test.describe('Page Builder Editor — Panel', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 for (const widget of WIDGETS) {
   test.describe(`Widget: ${widget.name}`, () => {
-    test(`[${widget.name}] — can be found in Page Builder panel`, async ({ page }) => {
+    test(`[${widget.name}] — can be found in Elementor panel`, async ({ page }) => {
       await page.goto(`${ADMIN}/post-new.php?post_type=page`);
       await waitForElementor(page);
 
-      const editBtn = page.locator('#Page Builder-switch-mode-button, a:has-text("Edit with Page Builder")');
+      const editBtn = page.locator('#elementor-switch-mode-button, a:has-text("Edit with Elementor")');
       if (await editBtn.count() > 0) {
         await editBtn.first().click();
         await waitForElementor(page);
       }
 
-      const searchInput = page.locator('.Page Builder-search-input, input[placeholder*="Search"]').first();
+      const searchInput = page.locator('.elementor-search-input, input[placeholder*="Search"]').first();
       if (await searchInput.isVisible().catch(() => false)) {
         await searchInput.fill(widget.searchTerm || widget.name);
         await page.waitForTimeout(1000);
@@ -149,16 +149,16 @@ for (const widget of WIDGETS) {
       }
 
       // Check widget title appears
-      const widgetInPanel = page.locator(`.Page Builder-widget-title:has-text("${widget.name}"), [title*="${widget.name}"]`).first();
+      const widgetInPanel = page.locator(`.elementor-widget-title:has-text("${widget.name}"), [title*="${widget.name}"]`).first();
       const found = await widgetInPanel.count();
-      expect(found, `"${widget.name}" not found in Page Builder panel`).toBeGreaterThan(0);
+      expect(found, `"${widget.name}" not found in Elementor panel`).toBeGreaterThan(0);
     });
 
     test(`[${widget.name}] — editor panel screenshot`, async ({ page }) => {
       await page.goto(`${ADMIN}/post-new.php?post_type=page`);
       await waitForElementor(page);
 
-      const editBtn = page.locator('#Page Builder-switch-mode-button, a:has-text("Edit with Page Builder")');
+      const editBtn = page.locator('#elementor-switch-mode-button, a:has-text("Edit with Elementor")');
       if (await editBtn.count() > 0) {
         await editBtn.first().click();
         await waitForElementor(page);
@@ -179,7 +179,7 @@ for (const widget of WIDGETS) {
       await page.goto(`${ADMIN}/post-new.php?post_type=page`);
       await waitForElementor(page);
 
-      const editBtn = page.locator('#Page Builder-switch-mode-button, a:has-text("Edit with Page Builder")');
+      const editBtn = page.locator('#elementor-switch-mode-button, a:has-text("Edit with Elementor")');
       if (await editBtn.count() > 0) {
         await editBtn.first().click();
         await waitForElementor(page);
@@ -285,7 +285,7 @@ test.describe('UX Complexity Audit', () => {
     console.log(`  Selects: ${selects}`);
     console.log(`  Sections: ${sections}`);
     console.log(`  COMPLEXITY SCORE: ${complexity}`);
-    console.log(`  (plugin-b ≈ 180 | Plugin B ≈ 320 | Good target: <200)`);
+    console.log(`  (Yoast ≈ 180 | RankMath ≈ 320 | Good target: <200)`);
 
     await snap(page, `settings-complexity-audit`);
 
@@ -360,7 +360,7 @@ if (cfg.competitors && cfg.competitors.length > 0) {
         // Screenshot saved — visual comparison done manually or via HTML report
       }
 
-      console.log(`\nCompetitor settings screenshots saved to reports/screenshots/Page Builder/`);
+      console.log(`\nCompetitor settings screenshots saved to reports/screenshots/elementor/`);
       console.log(`Open HTML report to view side-by-side: npx playwright show-report reports/playwright-html`);
     });
   });
