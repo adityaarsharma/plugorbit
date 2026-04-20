@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# WordPress QA Master — Full Pre-Release Gauntlet
+# PlugOrbit — Full Pre-Release Gauntlet
 # Usage: bash scripts/gauntlet.sh --plugin /path/to/plugin [--env local|ci] [--mode full|quick]
 
 set -e
@@ -37,7 +37,7 @@ PLUGIN_NAME=$(basename "$PLUGIN_PATH")
 
 # Init report
 cat > "$REPORT_FILE" << EOF
-# WordPress QA Gauntlet Report
+# PlugOrbit Gauntlet Report
 **Plugin**: $PLUGIN_NAME
 **Date**: $(date)
 **Mode**: $MODE / $ENV
@@ -48,7 +48,7 @@ cat > "$REPORT_FILE" << EOF
 EOF
 
 echo ""
-echo -e "${BOLD}WordPress QA Master — Pre-Release Gauntlet${NC}"
+echo -e "${BOLD}PlugOrbit — Pre-Release Gauntlet${NC}"
 echo -e "Plugin: ${YELLOW}$PLUGIN_NAME${NC} | Mode: $MODE | Env: $ENV"
 echo "================================================"
 
@@ -148,9 +148,42 @@ ok "JS total: ${JS_MB}MB | CSS total: ${CSS_KB}KB"
 log "- JS total: ${JS_MB}MB | CSS total: ${CSS_KB}KB"
 ((PASS++))
 
-# ── STEP 5: PLAYWRIGHT FUNCTIONAL TESTS ──────────────────────────────────────
-header "Step 5: Playwright Functional + Visual Tests"
-log "## Step 5: Playwright"
+# ── STEP 5: i18n / POT FILE CHECK ─────────────────────────────────────────────
+header "Step 5: i18n / POT File"
+log "## Step 5: i18n / POT"
+
+if command -v wp &>/dev/null; then
+  POT_OUT=$(cd "$PLUGIN_PATH" && wp i18n make-pot . /tmp/plugorbit-check.pot --skip-audit 2>&1 || true)
+  UNWRAPPED=$(grep -rE "echo\s+['\"]" "$PLUGIN_PATH" --include="*.php" \
+    --exclude-dir=vendor --exclude-dir=node_modules 2>/dev/null \
+    | grep -vE "(__\(|_e\(|esc_html__|esc_attr__|_x\(|_n\()" | wc -l | tr -d ' ')
+
+  if [ -f "/tmp/plugorbit-check.pot" ]; then
+    STRINGS=$(grep -c '^msgid "' /tmp/plugorbit-check.pot || echo "0")
+    ok "POT generated — $STRINGS translatable strings"
+    log "- ✓ POT generated: $STRINGS strings"
+    if [ "$UNWRAPPED" -gt 0 ]; then
+      warn "$UNWRAPPED possibly untranslated echo strings — review"
+      log "- ⚠ $UNWRAPPED possibly untranslated strings"
+      ((WARN++))
+    else
+      ((PASS++))
+    fi
+    rm -f /tmp/plugorbit-check.pot
+  else
+    warn "POT generation failed — check plugin header + text domain"
+    log "- ⚠ POT generation failed"
+    ((WARN++))
+  fi
+else
+  warn "wp-cli not installed — skipping i18n check"
+  log "- ⚠ i18n: skipped (wp-cli missing)"
+  ((WARN++))
+fi
+
+# ── STEP 6: PLAYWRIGHT FUNCTIONAL TESTS ──────────────────────────────────────
+header "Step 6: Playwright Functional + Visual Tests"
+log "## Step 6: Playwright"
 
 if command -v npx &>/dev/null && [ -f "playwright.config.js" -o -f "tests/playwright/playwright.config.js" ]; then
   PLAYWRIGHT_OUT=$(npx playwright test tests/playwright/ \
@@ -174,10 +207,10 @@ else
   ((WARN++))
 fi
 
-# ── STEP 6: LIGHTHOUSE PERFORMANCE ───────────────────────────────────────────
+# ── STEP 7: LIGHTHOUSE PERFORMANCE ───────────────────────────────────────────
 if [ "$MODE" = "full" ]; then
-  header "Step 6: Lighthouse Performance"
-  log "## Step 6: Lighthouse"
+  header "Step 7: Lighthouse Performance"
+  log "## Step 7: Lighthouse"
 
   WP_LOCAL_URL="${WP_TEST_URL:-http://localhost:8888}"
 
@@ -214,10 +247,10 @@ print(int(d['categories']['performance']['score']*100))
   fi
 fi
 
-# ── STEP 7: DB PROFILING (local only) ─────────────────────────────────────────
+# ── STEP 8: DB PROFILING (local only) ─────────────────────────────────────────
 if [ "$MODE" = "full" ] && [ "$ENV" = "local" ]; then
-  header "Step 7: Database Profiling"
-  log "## Step 7: Database"
+  header "Step 8: Database Profiling"
+  log "## Step 8: Database"
   bash scripts/db-profile.sh 2>/dev/null || warn "DB profiling failed — see docs/database-profiling.md"
   log "- See reports/db-profile-$TIMESTAMP.txt"
 fi

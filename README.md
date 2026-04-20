@@ -60,7 +60,8 @@ PlugOrbit brings that same discipline to any plugin team, with a single command.
 | **Security Scan** | XSS, CSRF, SQLi, auth bypass, path traversal | phpcs security sniffs | 30s |
 | **Database Profiling** | N+1 queries, slow queries, autoload bloat | Query Monitor + MySQL | 2min |
 | **Asset Weight** | JS/CSS bundle size, size regression per release | File analysis | 5s |
-| **Compatibility** | PHP 7.4–8.3 × WP 6.3–latest | GitHub Actions matrix | 5min |
+| **Compatibility** | PHP 7.4–8.3 × WP 6.3–latest | Local WP site variants + `php -l` | 5min |
+| **i18n / POT** | Untranslated strings, missing text domains | `wp i18n make-pot` | 20s |
 
 ### For QA Testers
 
@@ -75,13 +76,18 @@ PlugOrbit brings that same discipline to any plugin team, with a single command.
 
 ### For Product Managers
 
-| Layer | What It Protects | Shown As |
-|---|---|---|
-| **Release Comparison** | "Did this release get worse or better?" | Score deltas (↑↓) |
-| **Lighthouse Score** | User-facing speed and quality | 0–100 score |
-| **Competitor Analysis** | "Are we ahead or behind on code quality?" | Side-by-side table |
-| **Pre-Release Checklist** | Sign-off gate before anything ships | Checklist |
-| **UI/UX Checklist** | "Does this feel premium?" | 40-point checklist |
+No commands to memorize — read `reports/qa-report-{timestamp}.md` after every gauntlet run.
+
+| Layer | What It Protects | Shown As | Where |
+|---|---|---|---|
+| **Release Comparison** | "Did this release get worse or better?" | Score deltas (↑↓) | `scripts/compare-versions.sh` output |
+| **Lighthouse Score** | User-facing speed and quality | 0–100 score | Gauntlet report |
+| **Competitor Analysis** | "Are we ahead or behind?" | Side-by-side table of code quality, asset weight, update cadence | `reports/competitor-*.md` |
+| **Pre-Release Checklist** | Sign-off gate before shipping | 60-point checklist | [checklists/pre-release-checklist.md](checklists/pre-release-checklist.md) |
+| **UI/UX Checklist** | "Does this feel premium?" | 40-point checklist | [checklists/ui-ux-checklist.md](checklists/ui-ux-checklist.md) |
+| **Changelog → Risk Map** | "What does this release change that could break?" | Test plan per changelog entry | `scripts/changelog-test.sh` |
+
+**PM workflow**: before every release, open the latest gauntlet report + competitor report → check score deltas → sign off on the pre-release checklist. No terminal needed.
 
 ---
 
@@ -90,8 +96,8 @@ PlugOrbit brings that same discipline to any plugin team, with a single command.
 ### Option 1 — Interactive Setup (Recommended for First Time)
 
 ```bash
-git clone https://github.com/adityaarsharma/wordpress-qa-master
-cd wordpress-qa-master
+git clone https://github.com/adityaarsharma/plugorbit
+cd plugorbit
 bash setup/init.sh
 ```
 
@@ -107,14 +113,14 @@ Every subsequent command reads from `qa.config.json` so you never repeat yoursel
 ### Option 2 — One-Liner (Skip Questions)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/adityaarsharma/wordpress-qa-master/main/setup/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/adityaarsharma/plugorbit/main/setup/install.sh | bash
 ```
 
 ### Option 3 — Manual
 
 ```bash
-git clone https://github.com/adityaarsharma/wordpress-qa-master
-cd wordpress-qa-master
+git clone https://github.com/adityaarsharma/plugorbit
+cd plugorbit
 bash setup/install.sh   # installs all tools
 # Then configure qa.config.json manually (see structure below)
 ```
@@ -221,9 +227,10 @@ Step 1  PHP Lint           → syntax errors in every .php file
 Step 2  PHPCS              → WordPress + VIP coding standards
 Step 3  PHPStan            → static analysis (level 5)
 Step 4  Asset Weight       → JS/CSS bundle sizes
-Step 5  Playwright Tests   → functional + visual regression
-Step 6  Lighthouse         → Core Web Vitals scores
-Step 7  DB Profiling       → query count + slow query log (local only)
+Step 5  i18n / POT         → translatable strings + text domain check (wp-cli)
+Step 6  Playwright Tests   → functional + visual regression
+Step 7  Lighthouse         → Core Web Vitals scores
+Step 8  DB Profiling       → query count + slow query log (local only)
 ```
 
 ### Changelog-Based Tests
@@ -415,31 +422,16 @@ Merge findings by severity."
 
 ---
 
-## CI / GitHub Actions
+## Claude Code-Native (No CI Required)
 
-### What Triggers What
+PlugOrbit runs **locally, on demand, from Claude Code**. No GitHub Actions, no servers, no API keys, no secrets to manage. Every check is a `/skill` call or a `bash scripts/*.sh` invocation you trigger yourself.
 
-| Trigger | Workflow | What Runs |
-|---|---|---|
-| Any pull request | `qa-quick.yml` | PHP lint on changed files + PHPCS + smoke tests |
-| Push to `release/**` | `qa-full.yml` | Full gauntlet (all 4 jobs in parallel) |
-| Push to `main` | `qa-full.yml` | Full gauntlet |
-| Manual trigger | `qa-full.yml` | Choose which plugin to test |
+**Why local-only?**
+- WordPress plugin QA needs real MySQL, real PHP, real browsers — you have those on your Mac.
+- CI drifts: tooling breaks silently, nobody fixes it, releases ship anyway. Local is inspectable.
+- Claude Code with `/` commands is faster to iterate than CI logs.
 
-### Jobs in the Full Workflow
-
-All 4 jobs run in parallel. Total time: ~8–12 minutes.
-
-1. **Code Quality** — PHP lint + PHPCS (WPCS + VIP) + PHPStan + asset weight
-2. **E2E Tests** — Full Playwright suite via WordPress Playground (no server needed)
-3. **Lighthouse CI** — Performance + accessibility + SEO scores with thresholds
-4. **Compatibility Matrix** — PHP 7.4 / 8.0 / 8.1 / 8.2 / 8.3 (fail-fast: off)
-
-Results appear as a summary table in GitHub Actions → each run → Summary tab.
-
-### No Secrets Required
-
-GitHub Actions uses WordPress Playground (WebAssembly) for browser tests — no server, no API keys, no paid services. Runs on free GitHub Actions minutes.
+**When you want automation later**, wire `bash scripts/gauntlet.sh` into your existing deploy pipeline — it exits 0 on pass, 1 on fail.
 
 ---
 
@@ -533,11 +525,11 @@ Summary: 6 passed · 1 warning · 0 failed
 ## Folder Structure
 
 ```
-wordpress-qa-master/
+plugorbit/
 ├── setup/
-│   ├── init.sh                    # Interactive first-run setup
+│   ├── init.sh                    # Interactive first-run setup (PlugOrbit config)
 │   ├── install.sh                 # 1-click dependency installer
-│   └── playground-blueprint.json  # WP Playground CI config
+│   └── playground-blueprint.json  # Optional WP Playground local blueprint
 ├── tests/playwright/
 │   ├── playwright.config.js        # Multi-project config (desktop + mobile + tablet)
 │   ├── auth.setup.js               # Save admin cookies once
@@ -556,9 +548,6 @@ wordpress-qa-master/
 │   ├── compare-versions.sh         # Version A vs B diff
 │   ├── competitor-compare.sh       # Download + analyze competitor plugins
 │   └── db-profile.sh              # MySQL slow log + WP-CLI query profiling
-├── .github/workflows/
-│   ├── qa-full.yml                 # 4 parallel jobs: code + E2E + Lighthouse + matrix
-│   └── qa-quick.yml               # Fast PR check (changed files only)
 ├── checklists/
 │   ├── pre-release-checklist.md
 │   ├── ui-ux-checklist.md
