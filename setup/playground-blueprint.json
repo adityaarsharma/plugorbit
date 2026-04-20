@@ -1,0 +1,35 @@
+{
+  "preferredVersions": {
+    "php": "8.1",
+    "wp": "latest"
+  },
+  "steps": [
+    {
+      "step": "login",
+      "username": "admin",
+      "password": "password"
+    },
+    {
+      "step": "installPlugin",
+      "pluginZipFile": {
+        "resource": "wordpress.org/plugins",
+        "slug": "query-monitor"
+      }
+    },
+    {
+      "step": "activatePlugin",
+      "pluginPath": "query-monitor/query-monitor.php"
+    },
+    {
+      "step": "setSiteOptions",
+      "options": {
+        "blogname": "POSIMYTH QA Test Site",
+        "blogdescription": "Automated QA testing environment"
+      }
+    },
+    {
+      "step": "runWpCliCommand",
+      "command": "post create --post_title='QA Test Page' --post_status=publish --post_type=page --post_name=qa-test"
+    }
+  ]
+}

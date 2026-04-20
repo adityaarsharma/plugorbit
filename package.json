@@ -1,0 +1,23 @@
+{
+  "name": "wordpress-qa-master",
+  "version": "1.0.0",
+  "description": "Automated QA pipeline for WordPress plugins — code, DB, performance, functional, visual, UI/UX",
+  "scripts": {
+    "test": "playwright test tests/playwright/",
+    "test:tpa": "playwright test tests/playwright/tpa/",
+    "test:nexterwp": "playwright test tests/playwright/nexterwp/",
+    "test:responsive": "playwright test tests/playwright/tpa/responsive.spec.js tests/playwright/nexterwp/core.spec.js --project=mobile-chrome --project=tablet",
+    "test:visual": "playwright test --update-snapshots",
+    "test:ci": "USE_PLAYGROUND=true playwright test --reporter=html",
+    "gauntlet": "bash scripts/gauntlet.sh",
+    "compare": "bash scripts/compare-versions.sh",
+    "db-profile": "bash scripts/db-profile.sh",
+    "report": "playwright show-report reports/playwright-html",
+    "install-deps": "bash setup/install.sh"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.9.1",
+    "@playwright/test": "^1.44.0",
+    "@wp-playground/cli": "^0.9.0"
+  }
+}

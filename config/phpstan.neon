@@ -1,0 +1,29 @@
+parameters:
+    level: 5
+    paths:
+        - includes
+    excludePaths:
+        - vendor
+        - node_modules
+        - tests
+    bootstrapFiles:
+        - %currentWorkingDirectory%/vendor/autoload.php
+    scanFiles:
+        - %currentWorkingDirectory%/vendor/php-stubs/wordpress-stubs/wordpress-stubs.php
+
+    # WordPress-specific config
+    dynamicConstantNames:
+        - WP_DEBUG
+        - ABSPATH
+        - WPINC
+        - WP_CONTENT_DIR
+
+    ignoreErrors:
+        # WordPress globals are fine
+        - '#Access to an undefined property \$wpdb#'
+        - '#Variable \$post might not be defined#'
+        # Dynamic hooks
+        - '#Call to an undefined method WP_Hook::#'
+
+    checkMissingIterableValueType: false
+    checkGenericClassInNonGenericObjectType: false
