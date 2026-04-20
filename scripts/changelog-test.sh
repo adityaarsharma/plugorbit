@@ -64,7 +64,7 @@ while IFS= read -r line; do
     echo -e "${GREEN}[NEW FEATURE]${NC} $line"
     echo "  → Test: Create a test page with the $WIDGET widget → verify it renders on frontend"
     echo "  → Test: Open page builder editor → search for '$WIDGET' → verify it appears in panel"
-    echo "  → Add: tests/playwright/tpa/${WIDGET// /-}.spec.js"
+    echo "  → Add: tests/playwright/plugin-a/${WIDGET// /-}.spec.js"
     echo ""
   fi
 
@@ -91,7 +91,7 @@ while IFS= read -r line; do
     FEATURE=$(echo "$line" | sed 's/.*[Ff]ix[ed]* *//' | cut -c1-60)
     echo -e "${GREEN}[BUG FIX]${NC} $line"
     echo "  → Test: Reproduce the original bug scenario → verify it no longer occurs"
-    echo "  → Add regression test: tests/playwright/tpa/regression.spec.js"
+    echo "  → Add regression test: tests/playwright/plugin-a/regression.spec.js"
     echo "  → Check: PHP lint passes, no new fatal errors"
     echo ""
   fi
@@ -165,5 +165,5 @@ echo "  # Full version comparison"
 echo "  bash scripts/compare-versions.sh --old plugin-old.zip --new plugin-new.zip"
 echo ""
 echo "  # Run Playwright for affected areas"
-echo "  WP_TEST_URL=\$WP_TPA_URL npx playwright test tests/playwright/tpa/"
+echo "  WP_TEST_URL=\$WP_TPA_URL npx playwright test tests/playwright/plugin-a/"
 echo ""
