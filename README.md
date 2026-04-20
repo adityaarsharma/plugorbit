@@ -1,12 +1,30 @@
-# PlugOrbit — WordPress Plugin QA Intelligence
+<div align="center">
 
-> The automated QA pipeline that makes every WordPress plugin ship like it was built by a senior team — even when it wasn't.
+# 🪐 PlugOrbit
 
-**Who this is for**: Plugin developers who want zero-regression releases · QA teams doing structured testing · Product managers who need confidence before shipping
+### **WordPress Plugin QA Intelligence**
 
-**Covers out-of-the-box**: The Plus Addons for Elementor · NexterWP Theme + Blocks + Extension · Any WordPress plugin (Elementor addon, Gutenberg blocks, SEO plugin, WooCommerce extension, theme)
+*The automated QA pipeline that makes every WordPress plugin ship like it was built by a senior team — even when it wasn't.*
 
-[![WordPress QA](https://github.com/adityaarsharma/wordpress-qa-master/actions/workflows/qa-full.yml/badge.svg)](https://github.com/adityaarsharma/wordpress-qa-master/actions/workflows/qa-full.yml)
+<br />
+
+![PHP](https://img.shields.io/badge/PHP-7.4%20→%208.3-777BB4?style=for-the-badge&logo=php&logoColor=white)
+![WordPress](https://img.shields.io/badge/WordPress-6.3%20→%20Latest-21759B?style=for-the-badge&logo=wordpress&logoColor=white)
+![Playwright](https://img.shields.io/badge/Playwright-E2E-2EAD33?style=for-the-badge&logo=playwright&logoColor=white)
+![Lighthouse](https://img.shields.io/badge/Lighthouse-Performance-F44B21?style=for-the-badge&logo=lighthouse&logoColor=white)
+![Claude Code](https://img.shields.io/badge/Claude%20Code-Skills-CC785C?style=for-the-badge)
+
+<br />
+
+**👨‍💻 Developers** → zero-regression releases &nbsp;·&nbsp; **🧪 QA Teams** → structured testing &nbsp;·&nbsp; **📊 Product Managers** → shipping confidence
+
+Covers **Elementor Addons · Gutenberg Blocks · SEO Plugins · WooCommerce Extensions · Themes**
+
+<br />
+
+[Quick Start](#quick-start) · [What It Checks](#what-it-checks) · [Skills Reference](SKILLS.md) · [Common WP Mistakes](docs/common-wp-mistakes.md)
+
+</div>
 
 ---
 
