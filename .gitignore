@@ -4,6 +4,13 @@ reports/
 tmp/
 test-results/
 playwright-report/
-*.zip
+.wp-env-site/
+plugins/free/**/*.zip
+plugins/pro/**/*.zip
+plugins/free/*/
+!plugins/free/.gitkeep
+!plugins/pro/.gitkeep
 .env
 .env.local
+.env.test
+qa.config.json

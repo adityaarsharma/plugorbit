@@ -499,10 +499,77 @@ Summary: 6 passed · 1 warning · 0 failed
 
 ## Docs
 
-- [Local WP Setup Guide](docs/local-wp-setup.md) — detailed step-by-step
+- [Local WP Setup Guide](docs/local-wp-setup.md) — detailed step-by-step (GUI-based, best for manual QA)
 - [Database Profiling Guide](docs/database-profiling.md) — Query Monitor, N+1 fixes, slow log
 - [Common WordPress Mistakes](docs/common-wp-mistakes.md) — what this pipeline catches automatically + how to fix them
+- [Power Tools Guide](docs/power-tools.md) — Claude Mem, Rector, Psalm, WPScan, and more
 - [Skill Commands Reference](SKILLS.md) — Claude Code skill invocations for every QA task
+- [Playwright Templates](tests/playwright/templates/README.md) — generic templates per plugin type
+
+---
+
+## Test Site Automation — Two Paths
+
+### Path A — Local WP (recommended for manual QA + rich DX)
+
+Local WP's site creation is **GUI-only** — you have to click through the app to create the site once. After that, PlugOrbit automates everything via WP-CLI.
+
+See [docs/local-wp-setup.md](docs/local-wp-setup.md) for exact click-through steps.
+
+**Good for**: daily manual testing, Query Monitor workflow, visually inspecting DB state.
+
+### Path B — `@wordpress/env` (fully automated, Docker-based)
+
+One command creates a fresh WP test site with your plugin pre-installed:
+
+```bash
+bash scripts/create-test-site.sh --plugin ~/plugins/my-plugin --port 8881
+# → http://localhost:8881 ready in 30 seconds, no clicks needed
+```
+
+**Good for**: CI-style isolated testing, fresh-state tests, multi-version matrix (run one site per PHP/WP combo).
+
+### Path C — `wp-now` (instant, no Docker)
+
+Run from any plugin folder:
+
+```bash
+cd ~/plugins/my-plugin && wp-now start
+# → instant WP with your plugin loaded, zero config
+```
+
+**Good for**: quick sanity checks, isolated widget tests.
+
+---
+
+## The `plugins/` Drop Box
+
+PlugOrbit has a `plugins/` folder for comparison runs and competitor analysis:
+
+```
+plugins/
+├── free/     # Auto-downloaded free zips (from wordpress.org)
+└── pro/      # You manually drop Pro / paid zips here
+```
+
+**Pull every free plugin slug from your config**:
+
+```bash
+bash scripts/pull-plugins.sh
+# Reads qa.config.json "competitors" → downloads latest zips → saves to plugins/free/<slug>/
+```
+
+**For Pro zips**: download from your vendor account, drop into `plugins/pro/`, reference in `qa.config.json`:
+
+```json
+{
+  "plugin": {
+    "proZip": "plugins/pro/my-plugin-pro-2.4.zip"
+  }
+}
+```
+
+Full details: [plugins/README.md](plugins/README.md).
 
 ---
 
@@ -528,26 +595,36 @@ Summary: 6 passed · 1 warning · 0 failed
 plugorbit/
 ├── setup/
 │   ├── init.sh                    # Interactive first-run setup (PlugOrbit config)
-│   ├── install.sh                 # 1-click dependency installer
+│   ├── install.sh                 # Basic dependency installer
 │   └── playground-blueprint.json  # Optional WP Playground local blueprint
+├── plugins/                        # Plugin zip drop-box (gitignored)
+│   ├── free/                       # Auto-downloaded from wordpress.org
+│   └── pro/                        # You drop Pro/paid zips here manually
 ├── tests/playwright/
 │   ├── playwright.config.js        # Multi-project config (desktop + mobile + tablet)
 │   ├── auth.setup.js               # Save admin cookies once
-│   ├── tpa/
-│   │   ├── core.spec.js            # TPA: admin, editor, frontend, a11y, visual
-│   │   └── responsive.spec.js      # TPA: mobile/tablet/desktop viewports
-│   └── nexterwp/
-│       └── core.spec.js            # NexterWP: theme, blocks, extension, visual
+│   ├── templates/                  # Copy these for your plugin
+│   │   ├── generic-plugin/
+│   │   ├── elementor-addon/
+│   │   ├── gutenberg-block/
+│   │   ├── seo-plugin/
+│   │   ├── woocommerce/
+│   │   └── theme/
+│   ├── tpa/                        # Real example: Elementor addon
+│   └── nexterwp/                   # Real example: theme + blocks
 ├── config/
 │   ├── phpcs.xml                   # WPCS + VIP + PHPCompatibility rules
 │   ├── phpstan.neon                # Level 5 static analysis
 │   └── lighthouserc.json           # Performance/a11y thresholds
 ├── scripts/
-│   ├── gauntlet.sh                 # Full pre-release pipeline
+│   ├── gauntlet.sh                 # Full pre-release pipeline (8 steps)
+│   ├── install-power-tools.sh      # Install every quality tool worth having
+│   ├── create-test-site.sh         # Automated wp-env test site
+│   ├── pull-plugins.sh             # Download free competitor zips by slug
 │   ├── changelog-test.sh           # Maps changelog → targeted tests
 │   ├── compare-versions.sh         # Version A vs B diff
-│   ├── competitor-compare.sh       # Download + analyze competitor plugins
-│   └── db-profile.sh              # MySQL slow log + WP-CLI query profiling
+│   ├── competitor-compare.sh       # Analyze competitor plugin zips
+│   └── db-profile.sh               # MySQL slow log + WP-CLI query profiling
 ├── checklists/
 │   ├── pre-release-checklist.md
 │   ├── ui-ux-checklist.md
@@ -573,17 +650,101 @@ plugorbit/
 
 ---
 
+## Power Tools — Level Up Every Claude Code Session
+
+PlugOrbit works on basic tooling, but install the full power kit and every plugin audit becomes a senior-team operation:
+
+```bash
+bash scripts/install-power-tools.sh
+```
+
+This installs:
+
+### Claude Code Add-Ons
+- **claude-mem** — persistent memory across Claude Code sessions. Every audit becomes searchable context for the next one.
+- **ccusage** — track your Claude Code token spend per session.
+
+### PHP Quality
+- **PHP_CodeSniffer + WPCS + VIP + PHPCompatibility** — the full WordPress standards stack
+- **PHPStan** level 5 + **szepeviktor/phpstan-wordpress** — static analysis with WP stubs
+- **Psalm** — alternative static analyzer (different strengths than PHPStan)
+- **Rector** — automated PHP refactoring, upgrade PHP 7 → 8 automatically
+- **PHPBench** — micro-benchmarks for hot paths
+
+### JS / CSS / Browser
+- **Playwright** + Chromium/Firefox/WebKit
+- **Lighthouse** + **LHCI**
+- **ESLint** + `@wordpress/eslint-plugin`
+- **Stylelint** + `@wordpress/stylelint-config`
+- **@axe-core/cli** — accessibility scanner
+
+### WordPress-Specific
+- **WP-CLI** — master it, save hours per day
+- **@wordpress/env** — Docker-based WP sites, fully scriptable
+- **wp-now** — zero-config instant WP from any folder
+- **WPScan** — WordPress vulnerability scanner (CVE checks)
+
+### Must-Install Claude Skills
+All 13 skills used in [SKILLS.md](SKILLS.md):
+- `/wordpress`, `/wordpress-plugin-development`, `/wordpress-penetration-testing`, `/wordpress-theme-development`, `/wordpress-woocommerce-development`
+- `/performance-engineer`, `/database-optimizer`, `/ui-ux-designer`, `/production-code-audit`, `/accessibility-compliance-accessibility-audit`
+- `/antigravity-design-expert`, `/antigravity-workflows`, `/antigravity-skill-orchestrator`
+
+Full list + install guide: [docs/power-tools.md](docs/power-tools.md).
+
+---
+
+## Roadmap — How PlugOrbit Gets Better
+
+PlugOrbit is designed to grow. Tracked ideas:
+
+### Near-term
+- [ ] **Plugin Check integration** — run [WordPress/plugin-check](https://github.com/WordPress/plugin-check) as Step 9 of gauntlet (mirrors wordpress.org submission checks)
+- [ ] **Mutation testing** — via Infection PHP to catch weak tests
+- [ ] **Release note auto-generator** — from Playwright diffs + changelog, produce a marketable changelog
+- [ ] **Multi-site matrix testing** — run gauntlet across `PHP × WP × WooCommerce` combinations via wp-env
+- [ ] **Translation coverage report** — per-locale .mo file freshness check
+
+### Medium-term
+- [ ] **WPScan CVE check** — wire into gauntlet as a security gate
+- [ ] **Memory profiling** — Xdebug + cachegrind integration for "which hook is slow"
+- [ ] **REST API fuzzer** — auto-discover + fuzz every `register_rest_route` call
+- [ ] **Gutenberg block.json linter** — strict validation against current WP standards
+- [ ] **Visual diff UI** — web viewer for pixel diffs beyond Playwright's HTML reporter
+
+### Long-term
+- [ ] **Claude Code Skill: `/plugorbit-audit`** — one skill that orchestrates the full gauntlet
+- [ ] **VS Code extension** — run any PlugOrbit script from the editor's command palette
+- [ ] **Release gate bot** — comment on PRs with a pass/fail grid
+- [ ] **Public benchmark dashboard** — community-submitted competitor scores, kept fresh
+
+### Contribute an idea
+Open an issue at [github.com/adityaarsharma/plugorbit/issues](https://github.com/adityaarsharma/plugorbit/issues) with `[roadmap]` in the title.
+
+---
+
 ## Contributing / Extending
 
 This repo is designed to grow. Good contributions:
-- New test specs for specific widget/block types
+- New Playwright templates for plugin types (tests/playwright/templates/)
 - Plugin-type-specific PHPCS rule additions
 - Additional competitor analysis metrics
 - Performance regression rules
 - New skill invocation patterns in SKILLS.md
+- New power tools worth installing (docs/power-tools.md)
 
 Keep it research-first. If adding a check: link to the standard or incident that motivated it.
 
 ---
 
-*Built for [POSIMYTH Innovation](https://posimyth.com) — makers of The Plus Addons for Elementor, NexterWP, UiChemy.*
+## Philosophy
+
+PlugOrbit follows three rules:
+
+1. **Build from config, not hardcoded paths.** Everything reads `qa.config.json`. A config-less run is a smoke test.
+2. **Local-first, not CI-first.** Real MySQL, real PHP, real browsers — already on your Mac. CI is optional plumbing.
+3. **Agents over scripts, when useful.** Claude Code skills are the senior reviewer; scripts are the junior QA.
+
+---
+
+*Built by [Aditya R Sharma](https://adityaarsharma.com). Licensed for any WordPress plugin team serious about shipping quality.*
