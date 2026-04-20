@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Compare two plugin zip versions — code, performance, DB queries, visual diff
-# Usage: bash scripts/compare-versions.sh --old plugin-v1.zip --new plugin-v2.zip --url http://tpa-test.local
+# Usage: bash scripts/compare-versions.sh --old plugin-v1.zip --new plugin-v2.zip --url http://localhost:8881
 
 set -e
 
@@ -116,7 +116,7 @@ cat >> "$REPORT" << EOF
 Run Playwright twice (old → baseline, new → compare):
 \`\`\`bash
 WP_PLUGIN_VERSION=old npx playwright test --update-snapshots
-# install new zip + restore Local WP snapshot
+# install new zip + reset wp-env DB
 WP_PLUGIN_VERSION=new npx playwright test
 \`\`\`
 Diffs output to \`playwright-report/diff/\`

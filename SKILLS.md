@@ -139,7 +139,7 @@ Output a test plan with file:line pointers for new test cases.
 /antigravity-workflows
 Execute the "QA and Browser Automation" workflow for my WordPress plugin.
 Plugin path: [path]
-Test site: [http://tpa-test.local or http://nexterwp-test.local]
+Test site: [http://localhost:8881 (default wp-env port)]
 Run through: admin panel, frontend rendering, Elementor editor, responsive viewports.
 Use Playwright MCP for browser control.
 ```
@@ -200,7 +200,7 @@ The orchestrator will:
 /antigravity-workflows
 Execute the "QA and Browser Automation" workflow for:
 - Plugin: The Plus Addons for Elementor
-- Test site: http://tpa-test.local
+- Test site: http://localhost:8881
 - Focus: full E2E, visual regression, responsive
 ```
 

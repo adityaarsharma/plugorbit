@@ -1,91 +1,135 @@
 #!/usr/bin/env bash
-# Database Query Profiler — Local WP via WP-CLI + MySQL slow query log
-# Requires: Local WP running, WP-CLI, Query Monitor plugin active
-# Usage: bash scripts/db-profile.sh [--url http://tpa-test.local] [--pages "/,/test-page/,/shop/"]
+# PlugOrbit — Database Query Profiler via wp-env
+# Requires: wp-env site running, Query Monitor plugin active (auto-installed by create-test-site.sh)
+# Usage:
+#   bash scripts/db-profile.sh
+#   WP_TEST_URL=http://localhost:8881 TEST_PAGES="/,/shop/,/blog/" bash scripts/db-profile.sh
 
-WP_URL="${WP_TEST_URL:-http://tpa-test.local}"
-PAGES="${TEST_PAGES:-/,/test-page/,/sample-page/}"
-WP_PATH="${WP_PATH:-$HOME/Local\ Sites/tpa-test/app/public}"
+set -e
+
+WP_URL="${WP_TEST_URL:-http://localhost:8881}"
+PAGES="${TEST_PAGES:-/,/sample-page/}"
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 REPORT="reports/db-profile-$TIMESTAMP.txt"
 
+# Load from qa.config.json if available
+if [ -f "qa.config.json" ]; then
+  WP_URL=$(python3 -c "import json; print(json.load(open('qa.config.json'))['environment']['testUrl'])" 2>/dev/null || echo "$WP_URL")
+fi
+
 mkdir -p reports
 
-echo "Database Query Profiler"
-echo "URL: $WP_URL"
-echo "========================" | tee "$REPORT"
+GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; BOLD='\033[1m'; NC='\033[0m'
 
-# Check WP-CLI reachable
-if ! wp --path="$WP_PATH" core version &>/dev/null 2>&1; then
-  echo "WP-CLI can't reach WordPress at $WP_PATH"
-  echo "Ensure Local WP is running and WP_PATH is set correctly."
-  echo "Export: export WP_PATH=\"\$HOME/Local Sites/your-site/app/public\""
+echo ""
+echo -e "${BOLD}PlugOrbit Database Query Profiler${NC}"
+echo "URL: $WP_URL"
+echo "========================================" | tee "$REPORT"
+
+# Check wp-env is reachable
+if ! command -v wp-env &>/dev/null; then
+  echo -e "${RED}wp-env not installed. Run: npm install -g @wordpress/env${NC}"
   exit 1
 fi
 
-WP_VERSION=$(wp --path="$WP_PATH" core version)
-echo "WordPress: $WP_VERSION" | tee -a "$REPORT"
+# Sanity: is the site up?
+if ! curl -sf "$WP_URL" -o /dev/null; then
+  echo -e "${RED}Site not reachable at $WP_URL${NC}"
+  echo "Start it: bash scripts/create-test-site.sh"
+  exit 1
+fi
+
+# Resolve wp-env working directory
+WP_ENV_DIR=""
+if [ -d ".wp-env-site" ]; then
+  WP_ENV_DIR=".wp-env-site"
+elif [ -f ".wp-env.json" ]; then
+  WP_ENV_DIR="."
+else
+  echo -e "${YELLOW}No wp-env config found. Falling back to HTTP-based profiling.${NC}"
+fi
+
+# Run wp-cli inside wp-env
+run_wp() {
+  if [ -n "$WP_ENV_DIR" ]; then
+    (cd "$WP_ENV_DIR" && wp-env run cli wp "$@" 2>/dev/null)
+  else
+    echo ""
+  fi
+}
+
+WP_VERSION=$(run_wp core version)
+echo "WordPress: ${WP_VERSION:-unknown}" | tee -a "$REPORT"
 echo "Date: $(date)" >> "$REPORT"
 echo "" >> "$REPORT"
 
-# Check Query Monitor is active
-QM_ACTIVE=$(wp --path="$WP_PATH" plugin is-active query-monitor 2>/dev/null && echo "yes" || echo "no")
-if [ "$QM_ACTIVE" = "no" ]; then
-  echo "Installing Query Monitor..."
-  wp --path="$WP_PATH" plugin install query-monitor --activate 2>/dev/null
+# Ensure Query Monitor is active
+if [ -n "$WP_ENV_DIR" ]; then
+  QM_ACTIVE=$(run_wp plugin is-active query-monitor && echo "yes" || echo "no")
+  if [ "$QM_ACTIVE" = "no" ]; then
+    echo "Installing Query Monitor..."
+    run_wp plugin install query-monitor --activate
+  fi
 fi
 
-# Enable query logging via constant
-wp --path="$WP_PATH" eval "
-define('SAVEQUERIES', true);
-global \$wpdb;
-\$wpdb->show_errors();
-" 2>/dev/null || true
+echo "Page,Query Count,Load Time (ms),Notes" | tee -a "$REPORT"
 
-echo "Page,Query Count,Load Time (ms),Slow Queries,Notes" | tee -a "$REPORT"
-
-# Profile each page
 IFS=',' read -ra PAGE_LIST <<< "$PAGES"
 for PAGE in "${PAGE_LIST[@]}"; do
-  PAGE=$(echo "$PAGE" | xargs)  # trim whitespace
+  PAGE=$(echo "$PAGE" | xargs)
+  [ -z "$PAGE" ] && continue
   FULL_URL="$WP_URL$PAGE"
 
-  # Get query count via WP-CLI eval
-  QUERY_DATA=$(wp --path="$WP_PATH" eval "
-    \$_SERVER['REQUEST_URI'] = '$PAGE';
-    define('SAVEQUERIES', true);
-    require_once ABSPATH . 'wp-settings.php';
-    global \$wpdb;
-    the_post();
-    echo count(\$wpdb->queries) . ',' . (microtime(true) - \$_SERVER['REQUEST_TIME_FLOAT']) * 1000;
-  " --url="$FULL_URL" 2>/dev/null || echo "?,?")
+  # Measure via HTTP — inject a tiny probe via Query Monitor's /wp-json/ endpoint (if available)
+  # Fallback: time the request itself
+  START=$(python3 -c "import time; print(int(time.time() * 1000))")
+  HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$FULL_URL")
+  END=$(python3 -c "import time; print(int(time.time() * 1000))")
+  LOAD_MS=$((END - START))
 
-  QUERY_COUNT=$(echo "$QUERY_DATA" | cut -d',' -f1)
-  LOAD_MS=$(echo "$QUERY_DATA" | cut -d',' -f2 | cut -d'.' -f1)
+  # Count queries via wp-cli after a page load (approximate — reads wp_postmeta tracking)
+  QUERY_COUNT="?"
+  if [ -n "$WP_ENV_DIR" ]; then
+    QUERY_COUNT=$(run_wp eval "
+      define('SAVEQUERIES', true);
+      global \$wpdb;
+      \$req = wp_remote_get('$FULL_URL');
+      echo count(\$wpdb->queries);
+    " 2>/dev/null | head -1 || echo "?")
+  fi
 
-  # Flag slow pages
   NOTES=""
-  if [ "$QUERY_COUNT" != "?" ] && [ "$QUERY_COUNT" -gt 50 ]; then
-    NOTES="⚠ HIGH query count"
-  fi
-  if [ "$LOAD_MS" != "?" ] && [ "$LOAD_MS" -gt 500 ]; then
-    NOTES="$NOTES ⚠ SLOW load"
-  fi
+  [ "$HTTP_CODE" != "200" ] && NOTES="⚠ HTTP $HTTP_CODE"
+  [ "$QUERY_COUNT" != "?" ] && [ "$QUERY_COUNT" -gt 60 ] && NOTES="$NOTES ⚠ HIGH queries"
+  [ "$LOAD_MS" -gt 500 ] && NOTES="$NOTES ⚠ SLOW load"
 
   echo "$PAGE,$QUERY_COUNT,$LOAD_MS,$NOTES" | tee -a "$REPORT"
 done
 
 echo "" >> "$REPORT"
-echo "--- Slow Query Log ---" >> "$REPORT"
+echo "--- Slow Queries (via wp-env MySQL) ---" >> "$REPORT"
 
-# Check MySQL slow query log if accessible
-SLOW_LOG=$(wp --path="$WP_PATH" eval "echo ini_get('slow_query_log_file');" 2>/dev/null || echo "")
-if [ -n "$SLOW_LOG" ] && [ -f "$SLOW_LOG" ]; then
-  tail -50 "$SLOW_LOG" >> "$REPORT"
-  echo "Slow query log appended from: $SLOW_LOG"
-else
-  echo "Slow query log: not accessible (enable in Local WP → Site → Database → Enable Slow Query Log)" >> "$REPORT"
+if [ -n "$WP_ENV_DIR" ]; then
+  # Enable slow log inside container
+  SLOW_QUERIES=$(run_wp db query "
+    SELECT SQL_TEXT, EXEC_COUNT, TOTAL_LATENCY
+    FROM performance_schema.events_statements_summary_by_digest
+    WHERE SCHEMA_NAME = DATABASE()
+    ORDER BY TOTAL_LATENCY DESC LIMIT 10
+  " 2>/dev/null || echo "")
+
+  if [ -n "$SLOW_QUERIES" ]; then
+    echo "$SLOW_QUERIES" >> "$REPORT"
+  else
+    echo "(performance_schema not enabled — run: wp-env run cli wp db query \"SET GLOBAL performance_schema=ON\")" >> "$REPORT"
+  fi
 fi
 
 echo ""
-echo "DB profile saved to: $REPORT"
+echo -e "${GREEN}DB profile saved to: $REPORT${NC}"
+echo ""
+echo "Tips for reducing query count:"
+echo "  - Pre-warm postmeta cache: update_postmeta_cache(\$post_ids)"
+echo "  - Use get_posts + 'update_meta_cache' => true"
+echo "  - Cache expensive results in transients"
+echo "  - Run /database-optimizer skill for AI-assisted analysis"

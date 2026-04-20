@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # PlugOrbit — Create a fully automated WordPress test site
 # Uses @wordpress/env (Docker) to spin up a WP site with your plugin pre-installed.
-# No Local WP GUI needed — fully scriptable.
+# Fully scriptable Docker-based WP site — no GUI apps required.
 #
 # Usage:
 #   bash scripts/create-test-site.sh                        # uses qa.config.json
@@ -79,4 +79,4 @@ echo "Destroy site:   wp-env destroy"
 echo "Reset database: wp-env clean all"
 echo "Run WP-CLI:     wp-env run cli wp <command>"
 echo ""
-echo "For Local WP (GUI-based, richer DX for manual testing): see docs/local-wp-setup.md"
+echo "Full docs: docs/wp-env-setup.md"

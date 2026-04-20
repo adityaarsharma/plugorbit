@@ -8,8 +8,8 @@
 | Tool | What It Catches | How to Use |
 |---|---|---|
 | **Query Monitor** | All DB queries, slow queries, duplicates, N+1s | Install plugin, view in admin bar |
-| **MySQL Slow Query Log** | Queries >50ms threshold | Enable in Local WP site settings |
-| **SAVEQUERIES** | Total query count per request | Add `define('SAVEQUERIES', true)` to wp-config |
+| **MySQL performance_schema** | Queries >50ms threshold | `wp-env run cli wp db query "SET GLOBAL performance_schema=ON"` |
+| **SAVEQUERIES** | Total query count per request | Already enabled in `.wp-env-site/.wp-env.json` |
 | **`db-profile.sh`** | Automated query count per page | `bash scripts/db-profile.sh` |
 
 ---
@@ -71,28 +71,36 @@ Plugin settings that rarely change should use `autoload = 'no'`.
 
 ## Using Query Monitor
 
-1. Install via WP-CLI: `wp plugin install query-monitor --activate`
-2. Load any frontend page or admin page
-3. Click the **Query Monitor** bar at the top of the admin area
-4. Go to **Queries** tab
+`create-test-site.sh` auto-installs Query Monitor. To use:
+
+1. Visit `http://localhost:8881/wp-admin` → log in as `admin` / `password`
+2. You'll see the Query Monitor bar at the top of every page
+3. Visit any frontend page (Query Monitor stays visible since you're logged in)
+4. Click the bar → **Queries** tab
 5. Sort by **Time (ms)** — fix anything >50ms
 6. Look for **[duplicates]** marker — fix N+1s
 7. Filter by **Component** — see which plugin is responsible
 
 ---
 
-## Using the Slow Query Log
+## Slow Queries via performance_schema
 
-Enable in Local WP → Site → Database → Enable Slow Query Log.
+MySQL's `performance_schema` tracks query latency automatically:
 
-Then check:
 ```bash
-# View recent slow queries
-tail -100 "$(find ~/Library/Application\ Support/Local -name mysqld.log 2>/dev/null | head -1)"
+# Enable it (one-time per container)
+wp-env run cli wp db query "SET GLOBAL performance_schema=ON"
 
-# Or run our profiler
-bash scripts/db-profile.sh --url http://tpa-test.local \
-  --pages "/,/test-page/,/shop/,/wp-admin/admin.php?page=tpa_dashboard"
+# Top 10 slowest queries
+wp-env run cli wp db query "
+  SELECT SQL_TEXT, EXEC_COUNT, TOTAL_LATENCY
+  FROM performance_schema.events_statements_summary_by_digest
+  WHERE SCHEMA_NAME = DATABASE()
+  ORDER BY TOTAL_LATENCY DESC LIMIT 10
+"
+
+# Or run the automated profiler
+bash scripts/db-profile.sh
 ```
 
 ---
@@ -139,13 +147,16 @@ Run before and after upgrading your plugin:
 
 ```bash
 # Baseline (old version)
-WP_TEST_URL=http://tpa-test.local bash scripts/db-profile.sh > reports/db-old.txt
+bash scripts/db-profile.sh
+mv reports/db-profile-*.txt reports/db-old.txt
 
-# Restore snapshot, install new version
-# ...
+# Reset DB + install new version
+wp-env clean all
+wp-env run cli wp plugin install /path/to/new-plugin.zip --activate --force
 
-# New version
-WP_TEST_URL=http://tpa-test.local bash scripts/db-profile.sh > reports/db-new.txt
+# New version profile
+bash scripts/db-profile.sh
+mv reports/db-profile-*.txt reports/db-new.txt
 
 # Diff
 diff reports/db-old.txt reports/db-new.txt

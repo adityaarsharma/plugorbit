@@ -60,7 +60,7 @@ PlugOrbit brings that same discipline to any plugin team, with a single command.
 | **Security Scan** | XSS, CSRF, SQLi, auth bypass, path traversal | phpcs security sniffs | 30s |
 | **Database Profiling** | N+1 queries, slow queries, autoload bloat | Query Monitor + MySQL | 2min |
 | **Asset Weight** | JS/CSS bundle size, size regression per release | File analysis | 5s |
-| **Compatibility** | PHP 7.4–8.3 × WP 6.3–latest | Local WP site variants + `php -l` | 5min |
+| **Compatibility** | PHP 7.4–8.3 × WP 6.3–latest | `wp-env` multi-config + `php -l` | 5min |
 | **i18n / POT** | Untranslated strings, missing text domains | `wp i18n make-pot` | 20s |
 
 ### For QA Testers
@@ -127,76 +127,71 @@ bash setup/install.sh   # installs all tools
 
 ---
 
-## Local WP — Required for Full Testing
+## Test Site — Fully Automated (No GUI, No Clicks)
 
-### What Is Local WP and Why You Need It
+PlugOrbit uses **`@wordpress/env`** (Docker) for full automation or **`wp-now`** for instant, zero-config runs. No GUI apps to install, no click-through setup.
 
-Local WP (by Flywheel) is a free desktop app that runs a real WordPress environment on your Mac or Windows machine. Unlike WordPress Playground (browser-based), Local WP gives you:
+### Path A — `@wordpress/env` (recommended for CI-grade isolation)
 
-- **Real MySQL 8.0 database** — required for DB query profiling, slow query logs
-- **Real PHP 8.1** — catches issues that PHP simulators miss
-- **Snapshots** — restore a clean database in 5 seconds before each test run
-- **WP-CLI built in** — automate plugin installs, database resets from terminal
-- **Multiple sites at once** — one per plugin under test
+Docker-based, fully scriptable, multiple parallel sites possible.
 
-### Download the Right Version
-
-**Download**: https://localwp.com → click **Download**
-
-| Your Mac | Download |
-|---|---|
-| Apple Silicon (M1 / M2 / M3 / M4) | `Local-9.x.x-mac-arm64.dmg` |
-| Intel Mac | `Local-9.x.x-mac-x64.dmg` |
-| Windows | `Local-9.x.x-windows.exe` |
-
-> Always use **Local 9.x** (current stable). Older versions have networking issues on modern macOS.
-
-### Create Your Test Site
-
-1. Open Local → click **+** (bottom left)
-2. Site name: `tpa-test` (or your plugin name + `-test`)
-3. Choose **Custom** environment:
-   - PHP: **8.1**
-   - Web server: **nginx**
-   - MySQL: **8.0**
-4. WordPress username: `admin` | Password: `password`
-5. Click **Add Site**
-
-Repeat for each plugin (e.g. `nexterwp-test`).
-
-### First-Time Site Setup via WP-CLI
+**Prerequisites**: [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running.
 
 ```bash
-# Open the site shell in Local WP (right-click site → Open Site Shell)
+# One command — creates WP site + installs your plugin + Query Monitor
+bash scripts/create-test-site.sh --plugin ~/plugins/my-plugin --port 8881
 
-# Install Query Monitor for DB profiling (required)
-wp plugin install query-monitor --activate
-
-# Install Elementor if testing an Elementor addon
-wp plugin install elementor --activate
-
-# Install your plugin
-wp plugin install ~/Downloads/your-plugin.zip --activate --force
-
-# Create a test page
-wp post create --post_title="QA Test Page" --post_type=page --post_status=publish --post_name=qa-test
+# Site ready at: http://localhost:8881
+# Admin:         http://localhost:8881/wp-admin  (admin / password)
 ```
 
-### Take a Clean Snapshot
+**Lifecycle**:
 
-After setup is complete, **before running any tests**:
+```bash
+wp-env stop                       # pause the site
+wp-env start                      # resume
+wp-env destroy                    # nuke it
+wp-env clean all                  # reset DB to clean state
+wp-env run cli wp <any-wp-cli>    # run any WP-CLI command
+```
 
-1. Right-click site in Local → **Snapshots** → **Save Snapshot**
-2. Name: `clean-v{version}` (e.g. `clean-v2.4.0`)
+**Config**: auto-generated at `.wp-env-site/.wp-env.json`. Customize PHP/WP versions:
 
-**Restore before every test run**: Right-click → Snapshots → Restore.
-Takes 5 seconds. Guarantees a clean database with no test pollution.
+```json
+{
+  "core": "WordPress/WordPress#tags/6.5",
+  "phpVersion": "8.2",
+  "plugins": ["./path/to/my-plugin", "https://downloads.wordpress.org/plugin/query-monitor.zip"]
+}
+```
 
-### Enable MySQL Slow Query Log
+### Path B — `wp-now` (zero-config, instant)
 
-Local WP → Click site → **Database** tab → toggle **Enable Slow Query Log** → threshold: `0.05s`
+No Docker. Runs in any plugin folder, auto-detects the plugin, spins up WP in seconds.
 
-This logs any DB query taking over 50ms — essential for performance regression detection.
+```bash
+cd ~/plugins/my-plugin
+wp-now start
+
+# → http://localhost:8881 — plugin already active
+```
+
+Great for quick sanity checks. Not great for DB profiling or multi-site matrices (use wp-env for those).
+
+### Which to Use When
+
+| Scenario | Use |
+|---|---|
+| Full PlugOrbit gauntlet | `wp-env` (via `create-test-site.sh`) |
+| Quick single-widget check | `wp-now` |
+| Multi-version matrix (PHP 7.4 × 8.3 × WP 6.3 × latest) | `wp-env` with multiple configs |
+| CI / GitHub Actions later | `wp-env` (works identically in CI) |
+
+Both come with PlugOrbit's power-tools installer:
+
+```bash
+bash scripts/install-power-tools.sh
+```
 
 ---
 
@@ -210,12 +205,12 @@ Run every layer before any release tag:
 # Using qa.config.json (after init.sh)
 bash scripts/gauntlet.sh
 
-# Manual with explicit paths
-WP_TEST_URL=http://tpa-test.local \
-bash scripts/gauntlet.sh --plugin ~/plugins/the-plus-addons --env local
+# Explicit plugin path
+WP_TEST_URL=http://localhost:8881 \
+bash scripts/gauntlet.sh --plugin ~/plugins/my-plugin
 
 # Quick mode (skips DB + Lighthouse — for fast developer iteration)
-bash scripts/gauntlet.sh --plugin ~/plugins/the-plus-addons --mode quick
+bash scripts/gauntlet.sh --plugin ~/plugins/my-plugin --mode quick
 ```
 
 Exit codes: `0` = all passed · `1` = failures found (do not release)
@@ -230,7 +225,7 @@ Step 4  Asset Weight       → JS/CSS bundle sizes
 Step 5  i18n / POT         → translatable strings + text domain check (wp-cli)
 Step 6  Playwright Tests   → functional + visual regression
 Step 7  Lighthouse         → Core Web Vitals scores
-Step 8  DB Profiling       → query count + slow query log (local only)
+Step 8  DB Profiling       → query count + slow query log
 ```
 
 ### Changelog-Based Tests
@@ -283,37 +278,102 @@ Compares: PHPCS errors, bundle sizes, and sets up visual diff baseline.
 
 ## Playwright Tests — Browser Automation
 
-### First Run — Auth Setup
+Default URL assumes `wp-env` on port 8881. Override with `WP_TEST_URL`.
+
+### First Run — Save Admin Cookies
 
 ```bash
-WP_TEST_URL=http://tpa-test.local \
+WP_TEST_URL=http://localhost:8881 \
 npx playwright test tests/playwright/auth.setup.js --project=setup
 ```
 
 ### Run Tests
 
 ```bash
-# The Plus Addons — full suite
-WP_TEST_URL=http://tpa-test.local npx playwright test tests/playwright/tpa/
+# Any template/folder
+WP_TEST_URL=http://localhost:8881 npx playwright test tests/playwright/my-plugin/
 
-# NexterWP — full suite
-WP_TEST_URL=http://nexterwp-test.local npx playwright test tests/playwright/nexterwp/
+# Responsive (mobile + tablet + desktop projects)
+npx playwright test tests/playwright/my-plugin/ --project=mobile-chrome --project=tablet
 
-# Responsive only (mobile + tablet + desktop)
-WP_TEST_URL=http://tpa-test.local npx playwright test tests/playwright/tpa/responsive.spec.js
-
-# Watch the browser while tests run
-WP_TEST_URL=http://tpa-test.local npx playwright test tests/playwright/tpa/ --headed --slowMo=500
-
-# Debug a specific failing test
-WP_TEST_URL=http://tpa-test.local npx playwright test --debug
+# Just one file
+npx playwright test tests/playwright/my-plugin/core.spec.js
 ```
 
-### View Test Report
+### Watch Tests Run (4 Ways)
+
+Running tests blind is miserable. Pick the mode that fits:
+
+#### 1. **UI Mode** — best for development (interactive)
+
+```bash
+npx playwright test --ui
+```
+
+Opens a full test runner GUI. You see:
+- Every test in a sidebar — click to run individually
+- **Live DOM snapshot** at every step (time-travel debugger)
+- Network, console, source tabs
+- Watch mode — re-runs on file save
+
+*Use this 90% of the time when writing/fixing tests.*
+
+#### 2. **Headed Mode** — watch the browser do its thing
+
+```bash
+npx playwright test --headed --slowMo=500
+```
+
+Opens a real Chromium window. `--slowMo=500` pauses 500ms between actions so you can follow along.
+
+*Use when you want to verify a specific flow visually.*
+
+#### 3. **Debug Mode** — step through line by line
+
+```bash
+npx playwright test --debug
+```
+
+Opens the Playwright Inspector — set breakpoints, step over, pick locators.
+
+*Use when a test fails and you can't tell why.*
+
+#### 4. **Trace Viewer** — post-mortem on any failed test
+
+```bash
+# Traces auto-save on failure when "trace: 'on-first-retry'" is set in playwright.config.js
+npx playwright show-trace test-results/.../trace.zip
+```
+
+Opens a web UI showing:
+- DOM snapshot at every action
+- Network waterfall
+- Console logs
+- Screenshots and video (if enabled)
+
+*Use when a test failed on CI or someone else's machine — full forensic replay.*
+
+### HTML Report — after any run
 
 ```bash
 npx playwright show-report reports/playwright-html
 ```
+
+Shows pass/fail per test, screenshots of failures, traces, and diffs.
+
+### Screenshots + Video on Every Run
+
+Already configured in `playwright.config.js`:
+
+```js
+use: {
+  screenshot: 'only-on-failure',
+  video: 'retain-on-failure',
+  trace: 'on-first-retry',
+}
+```
+
+Every failure gets a screenshot + video + trace automatically.
 
 ### What Each Test File Checks
 
@@ -357,7 +417,7 @@ All performance testing runs locally with no external APIs required.
 
 ```bash
 # Full report (opens in browser)
-lighthouse http://tpa-test.local \
+lighthouse http://localhost:8881 \
   --output=html \
   --output-path=reports/lighthouse/report.html \
   --chrome-flags="--headless"
@@ -365,7 +425,7 @@ lighthouse http://tpa-test.local \
 open reports/lighthouse/report.html
 
 # Quick score
-lighthouse http://tpa-test.local --output=json --quiet \
+lighthouse http://localhost:8881 --output=json --quiet \
   | python3 -c "import json,sys; d=json.load(sys.stdin); \
     print('Performance:', int(d['categories']['performance']['score']*100), \
     '| A11y:', int(d['categories']['accessibility']['score']*100))"
@@ -384,10 +444,15 @@ lighthouse http://tpa-test.local --output=json --quiet \
 
 ### DB Query Profiling
 
+Runs WP-CLI inside your `wp-env` container to count queries, flag slow ones, and detect N+1 patterns.
+
 ```bash
-WP_PATH="$HOME/Local Sites/tpa-test/app/public" \
-WP_TEST_URL="http://tpa-test.local" \
-TEST_PAGES="/,/qa-test/" \
+# Default — uses wp-env site at port 8881
+bash scripts/db-profile.sh
+
+# Custom URL / pages
+WP_TEST_URL="http://localhost:8881" \
+TEST_PAGES="/,/my-test-page/" \
 bash scripts/db-profile.sh
 ```
 
@@ -440,7 +505,7 @@ PlugOrbit runs **locally, on demand, from Claude Code**. No GitHub Actions, no s
 1. Create: `tests/playwright/your-plugin/core.spec.js`
 2. Copy structure from `tests/playwright/tpa/core.spec.js`
 3. Replace admin URLs and CSS selectors with your plugin's
-4. Create a Local WP test site (Step: Create Test Sites)
+4. Create a test site: `bash scripts/create-test-site.sh --plugin ~/plugins/your-plugin --port 8881`
 5. Run: `WP_TEST_URL=http://your-plugin.local npx playwright test tests/playwright/your-plugin/`
 
 Minimal new test template:
@@ -499,46 +564,12 @@ Summary: 6 passed · 1 warning · 0 failed
 
 ## Docs
 
-- [Local WP Setup Guide](docs/local-wp-setup.md) — detailed step-by-step (GUI-based, best for manual QA)
+- [wp-env / wp-now Setup](docs/wp-env-setup.md) — fully automated WP test sites, Docker-based
 - [Database Profiling Guide](docs/database-profiling.md) — Query Monitor, N+1 fixes, slow log
 - [Common WordPress Mistakes](docs/common-wp-mistakes.md) — what this pipeline catches automatically + how to fix them
 - [Power Tools Guide](docs/power-tools.md) — Claude Mem, Rector, Psalm, WPScan, and more
 - [Skill Commands Reference](SKILLS.md) — Claude Code skill invocations for every QA task
 - [Playwright Templates](tests/playwright/templates/README.md) — generic templates per plugin type
-
----
-
-## Test Site Automation — Two Paths
-
-### Path A — Local WP (recommended for manual QA + rich DX)
-
-Local WP's site creation is **GUI-only** — you have to click through the app to create the site once. After that, PlugOrbit automates everything via WP-CLI.
-
-See [docs/local-wp-setup.md](docs/local-wp-setup.md) for exact click-through steps.
-
-**Good for**: daily manual testing, Query Monitor workflow, visually inspecting DB state.
-
-### Path B — `@wordpress/env` (fully automated, Docker-based)
-
-One command creates a fresh WP test site with your plugin pre-installed:
-
-```bash
-bash scripts/create-test-site.sh --plugin ~/plugins/my-plugin --port 8881
-# → http://localhost:8881 ready in 30 seconds, no clicks needed
-```
-
-**Good for**: CI-style isolated testing, fresh-state tests, multi-version matrix (run one site per PHP/WP combo).
-
-### Path C — `wp-now` (instant, no Docker)
-
-Run from any plugin folder:
-
-```bash
-cd ~/plugins/my-plugin && wp-now start
-# → instant WP with your plugin loaded, zero config
-```
-
-**Good for**: quick sanity checks, isolated widget tests.
 
 ---
 
@@ -631,7 +662,7 @@ plugorbit/
 │   ├── performance-checklist.md
 │   └── security-checklist.md
 ├── docs/
-│   ├── local-wp-setup.md
+│   ├── wp-env-setup.md
 │   ├── database-profiling.md
 │   └── common-wp-mistakes.md      # What senior WP devs know to avoid
 ├── SKILLS.md                       # Claude Code skill commands reference

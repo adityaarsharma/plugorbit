@@ -42,8 +42,8 @@
 ## Running Lighthouse Locally
 
 ```bash
-# Against Local WP
-lighthouse http://tpa-test.local \
+# Against wp-env site
+lighthouse http://localhost:8881 \
   --output=html \
   --output-path=reports/lighthouse/report.html \
   --chrome-flags="--headless"

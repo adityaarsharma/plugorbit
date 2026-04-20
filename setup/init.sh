@@ -65,18 +65,13 @@ read -r -p "  Plugin path [$DEFAULT_PATH]: " PLUGIN_PATH_INPUT
 PLUGIN_PATH="${PLUGIN_PATH_INPUT:-$DEFAULT_PATH}"
 echo ""
 
-# ── Local WP Site URL ─────────────────────────────────────────────────────────
-echo -e "${YELLOW}Q4. What is your Local WP test site URL?${NC}"
-DEFAULT_URL="http://$PLUGIN_SLUG-test.local"
-read -r -p "  Test site URL [$DEFAULT_URL]: " WP_URL_INPUT
-WP_URL="${WP_URL_INPUT:-$DEFAULT_URL}"
-echo ""
-
-# ── Local WP Path ─────────────────────────────────────────────────────────────
-echo -e "${YELLOW}Q5. What is the Local WP site path (WordPress root)?${NC}"
-DEFAULT_WP_PATH="$HOME/Local Sites/$PLUGIN_SLUG-test/app/public"
-read -r -p "  WP path [$DEFAULT_WP_PATH]: " WP_PATH_INPUT
-WP_PATH="${WP_PATH_INPUT:-$DEFAULT_WP_PATH}"
+# ── Test Site Port (wp-env) ───────────────────────────────────────────────────
+echo -e "${YELLOW}Q4. What port should your wp-env test site run on?${NC}"
+echo -e "   (We'll create the site automatically via Docker — no GUI needed.)"
+DEFAULT_PORT="8881"
+read -r -p "  Port [$DEFAULT_PORT]: " PORT_INPUT
+WP_PORT="${PORT_INPUT:-$DEFAULT_PORT}"
+WP_URL="http://localhost:$WP_PORT"
 echo ""
 
 # ── Competitors ───────────────────────────────────────────────────────────────
@@ -130,8 +125,8 @@ cat > qa.config.json << EOF
     "proZip": "$PRO_ZIP"
   },
   "environment": {
-    "localWpUrl": "$WP_URL",
-    "localWpPath": "$WP_PATH",
+    "testUrl": "$WP_URL",
+    "wpEnvPort": $WP_PORT,
     "adminUser": "admin",
     "adminPass": "password"
   },
@@ -151,31 +146,12 @@ cat > qa.config.json << EOF
 }
 EOF
 
-# ── Type-specific Playwright config ──────────────────────────────────────────
-case $PLUGIN_TYPE in
-  elementor-addon)
-    cat > .env.test << EOF
+# ── .env.test for Playwright ──────────────────────────────────────────────────
+cat > .env.test << EOF
 WP_TEST_URL=$WP_URL
-WP_PATH=$WP_PATH
-TPA_TEST_PAGE=/tpa-test/
-PLUGIN_TYPE=elementor-addon
+WP_ENV_PORT=$WP_PORT
+PLUGIN_TYPE=$PLUGIN_TYPE
 EOF
-    ;;
-  gutenberg-blocks)
-    cat > .env.test << EOF
-WP_TEST_URL=$WP_URL
-WP_PATH=$WP_PATH
-PLUGIN_TYPE=gutenberg-blocks
-EOF
-    ;;
-  theme)
-    cat > .env.test << EOF
-WP_TEST_URL=$WP_URL
-WP_PATH=$WP_PATH
-PLUGIN_TYPE=theme
-EOF
-    ;;
-esac
 
 echo ""
 echo "  ─────────────────────────────────────────"
@@ -183,18 +159,22 @@ echo -e "${GREEN}  Setup complete!${NC} Config saved to: qa.config.json"
 echo ""
 echo "  Next steps:"
 echo ""
-
-if [ "$PLUGIN_TYPE" = "elementor-addon" ] || [ "$PLUGIN_TYPE" = "gutenberg-blocks" ] || [ "$PLUGIN_TYPE" = "theme" ]; then
-  echo "  1. Install Local WP: https://localwp.com (Local 9.x, choose arm64 for M1/M2/M3/M4 Mac)"
-  echo "  2. Create site '$PLUGIN_SLUG-test' in Local WP (PHP 8.1, nginx, MySQL 8.0)"
-  echo "  3. Install deps:  bash setup/install.sh"
-  echo "  4. Run gauntlet:  bash scripts/gauntlet.sh --plugin $PLUGIN_PATH --env local"
-fi
+echo "  1. Install power tools (one-time):"
+echo "     bash scripts/install-power-tools.sh"
+echo ""
+echo "  2. Make sure Docker Desktop is running, then:"
+echo "     bash scripts/create-test-site.sh --plugin $PLUGIN_PATH --port $WP_PORT"
+echo "     → site ready at $WP_URL"
+echo ""
+echo "  3. Run the full gauntlet:"
+echo "     bash scripts/gauntlet.sh"
+echo ""
 
 if [ -n "$COMPETITORS" ]; then
+  echo "  Competitor analysis:"
+  echo "     bash scripts/pull-plugins.sh             # downloads free zips"
+  echo "     bash scripts/competitor-compare.sh       # analyzes them"
   echo ""
-  echo "  Competitor analysis ready:"
-  echo "  bash scripts/competitor-compare.sh"
 fi
 
 echo ""
