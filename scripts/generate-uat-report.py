@@ -18,7 +18,7 @@ WHY: pairing by slug prevents the index-mismatch bug where RM-3 (Titles)
 Usage:
   python3 scripts/generate-uat-report.py \\
     --title  "Plugin A vs Plugin B — v2.1" \\
-    --label-a "Nexter SEO" --label-b "RankMath" \\
+    --label-a "Plugin A" --label-b "Plugin B" \\
     --snaps  reports/screenshots/flows-compare \\
     --videos reports/videos \\
     --out    reports/uat-report.html
