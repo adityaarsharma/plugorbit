@@ -487,6 +487,60 @@ Merge findings by severity."
 
 ---
 
+## Deep Performance — Beyond Lighthouse
+
+Lighthouse scores the rendered page. PlugOrbit also profiles the parts Lighthouse can't see:
+
+### 1. Backend — Which Hook Is Slow?
+
+Find which PHP hook of yours is blocking page render. Query Monitor's **Hooks & Actions** panel + automated profiling:
+
+```bash
+bash scripts/db-profile.sh                    # query count + slow queries
+wp-env run cli wp profile stage --all         # if wp-cli-profile installed
+```
+
+Use `/performance-engineer` to analyze which of your `init/wp_loaded/wp_head` callbacks take >50ms.
+
+### 2. Frontend — What's Bloating the Bundle?
+
+Beyond Lighthouse scores — actual bundle audit:
+
+```bash
+npx source-map-explorer path/to/plugin/assets/js/main.js
+purgecss --css path/to/plugin/assets/css/frontend.css --content http://localhost:8881
+```
+
+Shows which files/selectors are shipped but unused.
+
+### 3. Editor Performance — Elementor + Gutenberg
+
+Most addon bugs live here: editor feels slow, widgets lag, panel freezes. PlugOrbit has a dedicated harness:
+
+```bash
+bash scripts/editor-perf.sh
+# → reports/editor-perf-{timestamp}.json
+```
+
+Measures:
+- **Editor ready time** (target: <3s)
+- **Widget panel populated** (target: <500ms after ready)
+- **Widget insert → render** (target: <300ms per widget)
+- **Memory growth after 20 widgets** (target: <100MB)
+- **Console spam + errors** from your plugin
+
+Then feed to Claude:
+
+```bash
+claude "/performance-engineer
+Analyze reports/editor-perf-*.json for ~/plugins/my-plugin.
+Rank widgets by insertMs, find heavy operations, suggest fixes."
+```
+
+Full guide: [docs/deep-performance.md](docs/deep-performance.md) — covers backend hook timing, Xdebug profiling, React DevTools, long-task detection, and release-blocking thresholds.
+
+---
+
 ## Claude Code-Native (No CI Required)
 
 PlugOrbit runs **locally, on demand, from Claude Code**. No GitHub Actions, no servers, no API keys, no secrets to manage. Every check is a `/skill` call or a `bash scripts/*.sh` invocation you trigger yourself.
@@ -566,9 +620,10 @@ Summary: 6 passed · 1 warning · 0 failed
 
 - [wp-env / wp-now Setup](docs/wp-env-setup.md) — fully automated WP test sites, Docker-based
 - [Database Profiling Guide](docs/database-profiling.md) — Query Monitor, N+1 fixes, slow log
+- [Deep Performance Guide](docs/deep-performance.md) — backend hooks, frontend bundle, Elementor editor perf
 - [Common WordPress Mistakes](docs/common-wp-mistakes.md) — what this pipeline catches automatically + how to fix them
 - [Power Tools Guide](docs/power-tools.md) — Claude Mem, Rector, Psalm, WPScan, and more
-- [Skill Commands Reference](SKILLS.md) — Claude Code skill invocations for every QA task
+- [Skill Commands Reference](SKILLS.md) — every Claude Code skill, with Antigravity attribution
 - [Playwright Templates](tests/playwright/templates/README.md) — generic templates per plugin type
 
 ---
@@ -655,7 +710,8 @@ plugorbit/
 │   ├── changelog-test.sh           # Maps changelog → targeted tests
 │   ├── compare-versions.sh         # Version A vs B diff
 │   ├── competitor-compare.sh       # Analyze competitor plugin zips
-│   └── db-profile.sh               # MySQL slow log + WP-CLI query profiling
+│   ├── db-profile.sh               # Query count + slow query profiling
+│   └── editor-perf.sh              # Elementor/Gutenberg editor load + widget-insert timing
 ├── checklists/
 │   ├── pre-release-checklist.md
 │   ├── ui-ux-checklist.md
@@ -775,6 +831,25 @@ PlugOrbit follows three rules:
 1. **Build from config, not hardcoded paths.** Everything reads `qa.config.json`. A config-less run is a smoke test.
 2. **Local-first, not CI-first.** Real MySQL, real PHP, real browsers — already on your Mac. CI is optional plumbing.
 3. **Agents over scripts, when useful.** Claude Code skills are the senior reviewer; scripts are the junior QA.
+
+---
+
+## Credits & Attribution
+
+PlugOrbit stands on the shoulders of open-source skill collections. **You don't need Google Antigravity installed** — every referenced skill works directly inside Claude Code.
+
+| Project | What | Link |
+|---|---|---|
+| **Antigravity Skills** (rmyndharis) | 300+ skills ported from Claude Code Agents — core `antigravity-*` skills | [github.com/rmyndharis/antigravity-skills](https://github.com/rmyndharis/antigravity-skills) |
+| **Antigravity Awesome Skills** (sickn33) | 1,400+ skills + installer CLI | [github.com/sickn33/antigravity-awesome-skills](https://github.com/sickn33/antigravity-awesome-skills) |
+| **Awesome Agent Skills** (VoltAgent) | 1,000+ skills from Anthropic, Vercel, Stripe, Cloudflare, Figma, Sentry | [github.com/VoltAgent/awesome-agent-skills](https://github.com/VoltAgent/awesome-agent-skills) |
+| **WordPress Coding Standards** | phpcs ruleset | [WordPress/WordPress-Coding-Standards](https://github.com/WordPress/WordPress-Coding-Standards) |
+| **WordPress VIP Coding Standards** | Enterprise sniffs | [Automattic/VIP-Coding-Standards](https://github.com/Automattic/VIP-Coding-Standards) |
+| **10up Engineering Best Practices** | Reference docs | [10up.github.io/Engineering-Best-Practices](https://10up.github.io/Engineering-Best-Practices/) |
+| **@wordpress/env** | Docker-based local WP | [github.com/WordPress/gutenberg/tree/trunk/packages/env](https://github.com/WordPress/gutenberg/tree/trunk/packages/env) |
+| **WPScan** | WordPress CVE scanner | [github.com/wpscanteam/wpscan](https://github.com/wpscanteam/wpscan) |
+
+Full skill-to-task mapping: [SKILLS.md](SKILLS.md). Power tools setup: [docs/power-tools.md](docs/power-tools.md).
 
 ---
 
