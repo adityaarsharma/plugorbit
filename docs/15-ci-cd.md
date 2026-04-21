@@ -4,6 +4,35 @@
 
 ---
 
+**You are here:** Before reading this guide, you should have Orbit running locally and at least one gauntlet run completed. This guide is for teams (or solo developers) who want Orbit to run automatically on every push, without having to remember to run it manually. If you have not yet run the gauntlet locally, start with the getting-started guide and come back here once you have a working local setup.
+
+---
+
+## Jargon buster
+
+CI/CD documentation is full of terms that assume prior knowledge. Here is what everything means before you read any further:
+
+- **GitHub Actions** — an automation system built into GitHub that runs scripts when things happen (like pushing code). Think of it as a robot employee that wakes up every time you push code, runs Orbit, and tells you pass/fail.
+- **CI (Continuous Integration)** — the practice of automatically testing every change before it touches your main branch. CI catches problems immediately, while the code change is still fresh in your mind.
+- **Workflow** — a YAML file (stored in `.github/workflows/`) that defines what runs and when. Each workflow is triggered by an event like a push, a pull request, or a scheduled time.
+- **Job** — one isolated unit of work within a workflow. Jobs can run in parallel with each other. For example, a "static analysis" job and a "Playwright tests" job can run at the same time.
+- **Step** — one command or action within a job. Steps run in sequence inside a job — each step must finish before the next one starts.
+- **Artifact** — a file (like a report) that gets saved after a workflow run and can be downloaded from GitHub. Orbit uploads its HTML reports as artifacts so your team can review them without running Orbit locally.
+- **Matrix build** — running the same job multiple times with different variables (like different PHP versions). Instead of writing four separate jobs for PHP 7.4, 8.0, 8.1, and 8.2, you write one job and tell GitHub Actions to run it four times.
+- **Secrets** — encrypted values stored in GitHub that your workflow can use without exposing them in code. Your `ANTHROPIC_API_KEY` is a secret — it appears as `${{ secrets.ANTHROPIC_API_KEY }}` in the workflow but is never visible in the repository.
+- **Caching** — saving downloaded packages between runs so you do not re-download them every time. Without caching, each run would spend 3–4 minutes re-installing npm packages. With caching, it takes seconds.
+- **Self-hosted runner** — your own server acting as the CI machine instead of GitHub's servers. Useful if you need Docker already warm or want faster disk I/O.
+- **`fail-fast: false`** — a matrix build setting that means "if PHP 7.4 fails, keep testing 8.0, 8.1, 8.2 anyway — I want to see all results." Without this, GitHub Actions stops the entire matrix the moment any one version fails.
+- **Release gate** — a checkpoint at the border that your code must pass before it can cross into a release tag. If the gate fails, the release cannot proceed.
+
+---
+
+## Why CI catches things local development doesn't
+
+When you test locally, you test in your environment — with your installed packages, your PHP version, your database, and your habits. CI tests in a clean, fresh environment that has none of your customizations. It runs the exact same way every time, with no developer bias, no "oh I know that warning is fine," and no skipped steps because you are in a hurry. A bug that only appears on PHP 7.4 will never surface on your PHP 8.1 development machine — but CI running the matrix will catch it immediately.
+
+---
+
 ## Table of Contents
 
 1. [Overview](#1-overview)
@@ -33,6 +62,8 @@ Orbit fits into CI at three levels:
 | **Release gate** | Tag push or manual | Full gauntlet + skill audits | ~15 min |
 | **Scheduled audit** | Nightly | Full gauntlet + PHP matrix | ~30 min |
 
+The table above shows the trade-off between speed and thoroughness. Every push gets a fast 30-second check that catches syntax errors immediately. Pull requests get a deeper check that takes a few minutes. Releases get the full audit that can take 15–30 minutes. You are not paying for the full audit on every single commit — only when it matters.
+
 ### What CI gets you
 
 - Broken PHP syntax never reaches `main`
@@ -42,6 +73,8 @@ Orbit fits into CI at three levels:
 - PHP compatibility regressions caught before release, not after
 
 ### Architecture
+
+The diagram below shows how the three main workflow files relate to each other. Each is triggered by a different event. They can run independently — a push to a feature branch triggers only the quick check, not the release gate.
 
 ```
 Push to PR branch
@@ -76,7 +109,9 @@ Push git tag v*.*.*
 
 ## 2. Quickstart: Single Workflow
 
-If you want one workflow that covers everything, start here. Add this to your plugin repo at `.github/workflows/orbit.yml`:
+If you want one workflow that covers everything, start here. Add this to your plugin repo at `.github/workflows/orbit.yml`.
+
+This is a single YAML file that runs on every push to `main` or `develop`, and on every pull request targeting `main`. It installs all dependencies, runs the quick gauntlet, and uploads the reports as a downloadable artifact. This is the right starting point if you have never set up CI before — get this working first, then add the more advanced workflows from the sections below.
 
 ```yaml
 name: Orbit QA
@@ -146,13 +181,17 @@ jobs:
           retention-days: 14
 ```
 
+The `if: always()` on the upload step means reports are saved even if the gauntlet failed — which is exactly when you need them most.
+
 This gives you: PHP lint, PHPCS, PHPStan, Asset check, i18n check, and Playwright smoke tests on every push and PR.
 
 ---
 
 ## 3. Pull Request Checks
 
-For teams: block merges until Orbit passes. Create `.github/workflows/pr-check.yml` in your plugin repo:
+For teams: block merges until Orbit passes. Create `.github/workflows/pr-check.yml` in your plugin repo.
+
+This workflow has two jobs that reflect a practical optimization: static analysis (PHP lint, PHPCS, PHPStan) runs first because it is fast and does not need Docker. The Playwright job — which needs a running WordPress environment — only starts if static analysis passes. This means a simple syntax error does not waste 10 minutes waiting for Docker to spin up.
 
 ```yaml
 name: PR Quality Check
@@ -296,7 +335,9 @@ Now PRs cannot merge if Orbit fails.
 
 ## 4. Full Release Gate Workflow
 
-This runs on tag push and is the definitive green light for a release. Create `.github/workflows/release-gate.yml`:
+This runs on tag push and is the definitive green light for a release. It is the most thorough check in the pipeline — it runs the full gauntlet including skill audits, parses the results, and explicitly fails if there are any Critical or High findings. Think of it as the checkpoint at the border that your code must pass before it can cross into a release tag.
+
+Create `.github/workflows/release-gate.yml`:
 
 ```yaml
 name: Release Gate
@@ -444,6 +485,8 @@ jobs:
 
 ### Workflow dispatch (manual trigger)
 
+You can trigger the full release gate on any branch without creating a tag first. This is useful during development when you want skill audits to run on demand without committing to a release.
+
 Run the full gate on any branch without tagging:
 
 1. Go to GitHub → Actions → Release Gate
@@ -457,7 +500,9 @@ Use this during development to run skill audits on demand.
 
 ## 5. PHP Version Matrix in CI
 
-Test against all supported PHP versions in parallel using a matrix strategy:
+Test against all supported PHP versions in parallel using a matrix strategy. This is the CI version of the local PHP matrix from `docs/09-multi-plugin.md` — the same concept, but running on GitHub's servers automatically on every tag push and every Monday morning.
+
+The `fail-fast: false` setting is important here. Without it, if PHP 7.4 fails, GitHub Actions would cancel all the other matrix jobs immediately. With `fail-fast: false`, all four PHP versions run to completion — giving you a complete picture of where compatibility breaks.
 
 ```yaml
 name: PHP Compatibility Matrix
@@ -574,7 +619,7 @@ jobs:
 
 ### What changes between PHP versions
 
-The matrix catches:
+The table below is your reference when the matrix fails on a specific PHP version and you are not sure what to look for. If PHP 7.4 passes but PHP 8.0 fails, start by looking at the changes in the 7.4 → 8.0 row. PHPCompatibilityWP (run in Step 2 of the gauntlet) will flag most of these automatically — this table helps you understand why.
 
 | PHP Change | What breaks |
 |---|---|
@@ -589,7 +634,7 @@ PHPCompatibilityWP ruleset catches most of these as PHPCS warnings in Step 2.
 
 ## 6. Playwright in CI
 
-Playwright needs a running WordPress instance. In CI, use `wp-env` with Docker:
+Playwright needs a running WordPress instance. In CI, use `wp-env` with Docker.
 
 ### Self-hosted runner (recommended for speed)
 
@@ -606,7 +651,7 @@ Benefits:
 
 ### GitHub-hosted runner
 
-On `ubuntu-latest`, Docker is available but images need to pull:
+On `ubuntu-latest`, Docker is available but images need to pull. The `timeout 300` command gives Docker up to 5 minutes to start — which is usually enough even on a cold pull. The `|| (npx wp-env logs && exit 1)` part prints the logs if it fails, which makes debugging much easier.
 
 ```yaml
 - name: Check Docker
@@ -634,7 +679,7 @@ On `ubuntu-latest`, Docker is available but images need to pull:
 
 ### Headed vs headless
 
-Playwright always runs headless in CI — no display is needed. The `CI=true` environment variable automatically enables headless mode in most Playwright configs.
+Playwright always runs headless in CI — no display is needed. The `CI=true` environment variable automatically enables headless mode in most Playwright configs. You do not need to configure this separately.
 
 To explicitly force headless:
 
@@ -702,9 +747,13 @@ jobs:
 
 ## 7. Caching Strategy
 
-CI runs get expensive and slow without caching. Cache everything that doesn't change between runs:
+CI runs get expensive and slow without caching. Every time a workflow runs without caching, it re-downloads the same packages from the internet. Caching saves those packages between runs so downloads only happen when something actually changes.
+
+Cache everything that doesn't change between runs:
 
 ### Node modules cache
+
+The `hashFiles('orbit/package-lock.json')` part means the cache key changes whenever `package-lock.json` changes — so if you add a new npm package, the cache is invalidated and packages are re-downloaded fresh. Otherwise, the cached version is used.
 
 ```yaml
 - name: Cache node_modules
@@ -787,6 +836,8 @@ For wp-env specifically, you can pre-pull the WordPress Docker image:
 
 ### Expected cache impact
 
+The table below shows the real-world time savings from caching. The total savings of about 3 minutes per run adds up quickly — on a team making 20 pushes a day, that is 60 minutes of waiting time saved daily.
+
 | Step | Without cache | With cache |
 |---|---|---|
 | `npm ci` | 45s | 5s |
@@ -802,6 +853,8 @@ Roughly 3 minutes saved per run.
 ## 8. Artifacts and Reports
 
 Upload reports as GitHub Actions artifacts so anyone on the team can download and view them without running Orbit locally.
+
+The `if: always()` condition means reports are uploaded even if the gauntlet failed. This is intentional — when a run fails, the reports are the most important thing to have access to. Without `always()`, a failing run would produce no downloadable artifacts.
 
 ### Upload all reports
 
@@ -834,6 +887,8 @@ Upload reports as GitHub Actions artifacts so anyone on the team can download an
 ```
 
 ### Download and view reports locally
+
+Once a workflow run has completed, you can download the reports using the GitHub CLI. The first command downloads everything; the second opens the HTML reports in your browser.
 
 ```bash
 # Using GitHub CLI
@@ -898,7 +953,7 @@ After a few runs, reports are browsable at:
 
 ## 9. Scheduled Audits
 
-Run a full audit every night so you catch issues before they pile up:
+Run a full audit every night so you catch issues before they pile up. This is especially useful for catching things that are not triggered by code changes — like a WordPress core update that introduces a new deprecation affecting your plugin, or a security vulnerability in a dependency.
 
 ```yaml
 name: Nightly Full Audit
@@ -975,6 +1030,8 @@ jobs:
 
 ### Scheduled cron tips
 
+Cron expressions follow the format: minute, hour, day-of-month, month, day-of-week. All times are UTC. Use the table below to set your preferred schedule.
+
 | Schedule | Cron expression |
 |---|---|
 | Every night at 3am UTC | `0 3 * * *` |
@@ -1020,11 +1077,15 @@ Result: `![Orbit](https://img.shields.io/endpoint?url=https://gist.githubusercon
 
 ### Required secrets
 
+Secrets are encrypted values that your workflow can access without exposing them in your code. They are set once in GitHub and referenced in workflows as `${{ secrets.NAME }}`. Never put actual API keys or passwords directly in your workflow YAML files.
+
 | Secret | Purpose | Where to get it |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | Claude Code skill audits (Step 11) | console.anthropic.com |
 | `SLACK_WEBHOOK_URL` | Failure notifications | Slack → App → Incoming Webhooks |
 | `GIST_TOKEN` | Dynamic badge updates | GitHub → Settings → Tokens (gist scope) |
+
+Only `ANTHROPIC_API_KEY` is required if you want skill audits to run in CI. The other two are optional — for notifications and badges respectively.
 
 ### Optional secrets
 
@@ -1035,6 +1096,8 @@ Result: `![Orbit](https://img.shields.io/endpoint?url=https://gist.githubusercon
 | `LIGHTHOUSE_CI_TOKEN` | Lighthouse CI server token |
 
 ### Setting secrets
+
+These commands add secrets to your repository using the GitHub CLI. You only need to do this once per secret. After setting a secret, it is immediately available to all workflows in that repository.
 
 ```bash
 # Using GitHub CLI
@@ -1075,6 +1138,15 @@ Or set a flag in your qa.config.json:
 ```
 
 Skill audits still run locally before release — you just skip them in the quick PR check to save API costs.
+
+> **Q: Do I need CI at all if I'm solo?**
+> CI is valuable even for solo developers — arguably more so, because there is no teammate to catch mistakes before they reach main. The key benefit is not team coordination; it is the fresh environment. Your local machine has accumulated months of configuration. CI runs on a clean machine every time, which means it catches things like "this only works because I have a global composer package installed" or "this fails on PHP 7.4 but I develop on 8.1." Start with the simple single-workflow setup from Section 2. You can add the full release gate later.
+
+> **Q: Does every push run skill audits? That would cost a lot in API calls.**
+> No. Skill audits (the Claude-powered security, performance, and accessibility checks) only run in the full release gate, which triggers on tag pushes. PR checks run PHPStan and Playwright only — no API calls. You can also skip skill audits in the release gate using `--skip-step 11` if you want to control costs. A reasonable approach: run skill audits manually before release using `open reports/skill-audits/index.html` locally, and only use CI for the automated checks.
+
+> **Q: What happens to the workflow if I don't have an ANTHROPIC_API_KEY secret set?**
+> The gauntlet step that runs skill audits will fail because the `claude` command will be unable to authenticate. This will cause the entire release gate workflow to fail. To avoid this, either set the secret (recommended for release gates) or use `--skip-step 11` in the gauntlet command to skip skill audits entirely in CI. The simpler PR check workflow does not use the API key at all, so it will work fine without it.
 
 ---
 

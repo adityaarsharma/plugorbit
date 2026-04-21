@@ -4,6 +4,10 @@
 
 ---
 
+**You are here:** This guide is for teams (or solo developers wearing multiple hats) who want to understand who does what in the Orbit QA process. If you are a solo developer, read all four role sections — you will be doing all of them yourself, and understanding the distinctions will help you prioritize what matters most at each stage of a release. If you are part of a team, jump to your role section and focus there.
+
+---
+
 ## Table of Contents
 
 1. [Developer](#1-developer)
@@ -14,11 +18,19 @@
 
 ---
 
+## Why each role reads different reports
+
+A PM does not need to know what PHPStan is. A developer does not need to watch UAT videos frame by frame. But a PM absolutely needs to know if there is a SQL injection vulnerability before approving a release — even if they do not know what SQL injection means technically, they need to know its consequence (an attacker could wipe the user's database). This guide gives each role exactly the information they need, filtered to what is actionable for them.
+
+---
+
 ## 1. Developer
 
 You own: writing code, fixing issues, running the gauntlet during development, interpreting skill audit findings.
 
 ### Daily workflow
+
+These commands represent the standard development loop. Run the test site once at the start of your session, then iterate: write code, run a quick check, fix failures, repeat. Before you commit anything, do a full run.
 
 ```bash
 # 1. Start your test site (once per session)
@@ -38,6 +50,8 @@ bash scripts/gauntlet.sh --plugin ~/plugins/my-plugin
 
 ### Pre-release workflow
 
+Before handing off to QA, run the full gauntlet and open the skill audit HTML report. Fix everything rated Critical or High — these are blockers. Medium and below can be logged and deferred.
+
 ```bash
 # Full gauntlet
 bash scripts/gauntlet.sh --plugin ~/plugins/my-plugin
@@ -55,7 +69,9 @@ open reports/skill-audits/index.html
 
 ### Interpreting skill audits
 
-**Focus on**: Security tab first, then WP Standards, then Performance.
+Always check the Security tab first. A Critical security finding is not something you can ship around — it needs to be fixed. Then check WP Standards (which catches issues that will trigger WordPress.org review rejections), then Performance.
+
+The table below tells you exactly what to do with each type of finding. "Low/Info" findings do not block a release, but they should be logged so they are not forgotten.
 
 | Finding | Your action |
 |---|---|
@@ -66,6 +82,8 @@ open reports/skill-audits/index.html
 | Low/Info | Log in TODO comment or Jira. Ship anyway. |
 
 ### Playwright test writing
+
+These commands help you write and run browser-based tests. Use `--ui` mode while you are writing tests — it opens a browser so you can see exactly what each test action is doing. Once your tests are working, drop the `--ui` flag for regular runs.
 
 ```bash
 # Copy the right template
@@ -88,6 +106,8 @@ npx playwright test tests/playwright/my-plugin/ --debug
 - Never use `page.waitForTimeout()` — use `waitForSelector` or `waitForLoadState`
 
 ### Skill prompts for targeted help
+
+You can ask Claude skills targeted questions about specific files or code patterns. These prompts show the format: specify the skill, what to look at, and what output you want. Adjust the file paths and questions to match your actual code.
 
 ```bash
 # Security review of a specific file you're worried about
@@ -119,6 +139,8 @@ Show before/after for each suggestion."
 
 ### What you own in reports
 
+The table below clarifies which reports are your responsibility to act on. "Developer action" means this report requires code changes — not just reading and noting.
+
 | Report | Developer action |
 |---|---|
 | `qa-report-*.md` | Fix all `✗` before tagging |
@@ -134,6 +156,8 @@ You own: writing and maintaining the test suite, running full audits, verifying 
 
 ### Daily workflow
 
+As a QA engineer, your primary tool is the Playwright test suite. Run the full suite against the current plugin state and review results in the browser-based report.
+
 ```bash
 # Start test site
 bash scripts/create-test-site.sh --plugin ~/plugins/my-plugin --port 8881
@@ -146,6 +170,8 @@ npx playwright show-report reports/playwright-html
 ```
 
 ### Before release
+
+Before a release, QA goes beyond the basic test suite. Run the PHP matrix, test with common conflicting plugins active, and do a dedicated accessibility pass. These steps catch categories of problems that the developer's daily loop does not cover.
 
 ```bash
 # Full gauntlet
@@ -168,6 +194,8 @@ npx playwright test tests/playwright/my-plugin/a11y.spec.js --headed
 
 ### Test writing guide
 
+When writing a test for a new feature, start by running the Discovery test to get exact admin page URLs. Do not hardcode URLs — use `gotoAdmin()` so tests stay valid if URL structures change.
+
 ```bash
 # Template for a new feature area
 cp tests/playwright/templates/generic-plugin/core.spec.js \
@@ -185,16 +213,22 @@ npx playwright test tests/playwright/my-plugin/new-feature.spec.js --headed
 
 ### Decision matrix: when to add a test
 
+Not every line of code needs a test, but user-facing behavior always does. Use this table to decide whether a new test is worth writing. The key principle: if a real user reported a bug, add a regression test. If no user will ever notice if the code breaks, a test is optional.
+
 | Situation | Add test? |
 |---|---|
-| Bug was reported by a user | ✅ Yes — regression test |
-| New feature shipping | ✅ Yes — at least smoke-level |
-| Config option with 2 states | ✅ Yes — test both states |
-| Trivial getter/setter | ❌ No |
-| Code explored in a spike | ❌ No — delete the spike |
-| Fix to a visual bug | ✅ Yes — visual regression snapshot |
+| Bug was reported by a user | Yes — regression test |
+| New feature shipping | Yes — at least smoke-level |
+| Config option with 2 states | Yes — test both states |
+| Trivial getter/setter | No |
+| Code explored in a spike | No — delete the spike |
+| Fix to a visual bug | Yes — visual regression snapshot |
+
+A "smoke-level" test means: does the page load, does the main action work, does the result appear? It does not mean exhaustive coverage of every edge case.
 
 ### Maintaining test quality
+
+Tests require maintenance just like code does. A flaky test (one that fails sometimes but not always) is a signal that there is a timing issue — something in the test is not waiting long enough for the UI to update. Address flaky tests promptly; a test suite that "usually passes" gives false confidence.
 
 ```bash
 # Update visual snapshots after intentional UI change
@@ -229,6 +263,8 @@ You own: release decisions, interpreting what findings mean for users, approving
 
 ### What you read (no code required)
 
+You do not need to run any commands to do your job in Orbit. The developer and QA engineer produce reports that you open and review. Start with the UAT report — it shows you videos and screenshots of the plugin working (or not working) as a user would see it.
+
 **Primary**: `reports/uat-report-TIMESTAMP.html`
 - Open with `open reports/uat-report-*.html`
 - Shows videos + side-by-side screenshots of every flow
@@ -243,16 +279,22 @@ Results: 9 passed | 2 warnings | 0 failed
 
 ### Release decision matrix
 
+Use this table to make the go/no-go call. The left two columns describe what you were told by the developer and QA engineer. The right column is your decision.
+
+If there is any Critical finding in skill audits, the release is held — no exceptions. A Critical finding means a user's site could be compromised, data lost, or security bypassed. That risk is not acceptable regardless of release pressure.
+
 | Gauntlet result | Skill audits | PM decision |
 |---|---|---|
-| ✓ All passed | No Critical/High | **Green light — tag the release** |
-| ⚠ Warnings only | No Critical/High | **Review warnings with dev, release if minor** |
-| ✗ Any failures | — | **Hold release until fixed** |
+| All passed | No Critical/High | **Green light — tag the release** |
+| Warnings only | No Critical/High | **Review warnings with dev, release if minor** |
+| Any failures | — | **Hold release until fixed** |
 | Any result | Has Critical | **Hold release — security risk to users** |
 | Any result | Has High | **Hold release — quality risk** |
 | Any result | Medium only | **Dev's call — ship or defer** |
 
 ### What Critical/High actually means for users
+
+Skill audit severity ratings use technical terms. This table translates each finding into plain language so you can make an informed release decision without needing to understand the code.
 
 | Skill finding | What it means for a user |
 |---|---|
@@ -289,6 +331,8 @@ You own: visual quality, UX polish, consistency with the design system, and the 
 
 ### What you run
 
+These commands let you see the plugin's UI as a user would, and compare the current state against the approved baseline screenshots.
+
 ```bash
 # Visual regression suite — check every screen for regressions
 npx playwright test tests/playwright/visual/ --headed
@@ -305,6 +349,8 @@ open reports/uat-report-*.html
 
 When a new design ships:
 
+The first run creates the baseline — the "correct" version of every screenshot that all future runs compare against. Run this command once after a design is approved and verified, then commit the baseline images to the repository.
+
 ```bash
 # First run — creates baseline screenshots
 WP_TEST_URL=http://localhost:8881 npx playwright test tests/playwright/visual/
@@ -314,6 +360,8 @@ WP_TEST_URL=http://localhost:8881 npx playwright test tests/playwright/visual/
 ```
 
 After an intentional design change:
+
+When the design is intentionally updated, the old baselines will cause all visual tests to fail — because they are comparing against the old look. Run `--update-snapshots` to accept the new design as the new baseline, then review each updated image to confirm it looks right before committing.
 
 ```bash
 # Update baselines
@@ -338,6 +386,8 @@ Open `reports/uat-report-*.html` and check:
 
 ### Running the design-specific skill
 
+This skill prompt asks Claude to review your plugin's UI for visual quality issues — things like buttons that are too small to tap, inconsistent spacing, or unclear typography hierarchy. It outputs a ranked list so you know what to fix first.
+
 ```bash
 # For Elementor addon plugins
 claude "/antigravity-design-expert
@@ -351,7 +401,7 @@ open reports/skill-audits/design.md
 
 ### Visual test for every screen state
 
-A complete visual test suite covers:
+A complete visual test suite covers every combination of screen and state that a user might encounter. The table below shows the minimum coverage. The "States to snapshot" column is important — an empty state that looks broken will make users think your plugin failed, even if it is working correctly.
 
 | Screen | States to snapshot |
 |---|---|
@@ -374,6 +424,8 @@ WP_TEST_URL=http://localhost:8881 npx playwright test \
 ## 5. Team Workflow: Pre-Release Sequence
 
 Who does what, in what order, before tagging a release.
+
+Think of the QA release sequence like a relay race. Each role picks up the baton in order and hands it to the next. The Developer runs the first leg and hands off to QA. QA hands off to the Designer. The Designer hands off to the PM. If you try to skip the Developer leg and go straight to PM sign-off, the race is invalid — the PM cannot make a meaningful release decision without the developer's gauntlet results and the QA engineer's test suite results. Each phase builds on the one before it.
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -451,6 +503,8 @@ git push origin v2.1.0
 
 For urgent bug fixes that must ship same day:
 
+A hotfix skips most of the normal sequence out of necessity. The absolute minimum below is not the goal for every release — it is the floor for emergencies. Full matrix and visual review should still happen in the next scheduled release.
+
 ```bash
 # Minimum required for a hotfix
 bash scripts/gauntlet.sh --plugin ~/plugins/my-plugin --mode quick
@@ -463,6 +517,12 @@ bash scripts/gauntlet.sh --plugin ~/plugins/my-plugin --mode quick
 ```
 
 Full matrix and visual review can follow in the next release.
+
+> **Q: I'm a solo developer — do I need to follow all four phases?**
+> No, but you should do the work that each phase represents, even if you are the only person doing it. That means: run the full gauntlet before every release (Developer phase), run the PHP matrix and full test suite (QA phase), open the UAT report and check it visually (Designer phase), and make a conscious go/no-go decision based on the results rather than just shipping because you feel good about the code (PM phase). The phases exist to distribute judgment across different perspectives — when you are solo, you provide all four perspectives yourself, ideally with a break between them.
+
+> **Q: What's the minimum I can do and still ship confidently?**
+> The absolute minimum for a non-hotfix release: run the full gauntlet (not quick mode), fix all Critical and High findings, verify all Playwright tests pass, and check the PHP matrix at least for your minimum supported PHP version and your maximum. Skipping the visual review and UAT report is acceptable if the release is backend-only (no UI changes). Skipping security findings is never acceptable.
 
 ---
 

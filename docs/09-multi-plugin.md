@@ -4,6 +4,10 @@
 
 ---
 
+**You are here:** This guide is for situations where you need to test more than one plugin at a time, or test a single plugin across multiple PHP or WordPress versions. If you have only one plugin and just want to run a basic quality check, start with the main gauntlet guide first. Come back here when you're preparing for a release sprint, managing a portfolio of plugins, or need to verify compatibility across different server environments.
+
+---
+
 ## Table of Contents
 
 1. [When to Use Multi-Plugin Testing](#1-when-to-use-multi-plugin-testing)
@@ -19,6 +23,8 @@
 
 ## 1. When to Use Multi-Plugin Testing
 
+The table below is a quick reference for which command matches which situation. If you are not sure where to start, match your situation to the left column, then run the corresponding command.
+
 | Scenario | Command |
 |---|---|
 | Test all plugins before a release sprint | `batch-test.sh --plugins-dir ~/plugins` |
@@ -27,13 +33,19 @@
 | Test free + pro versions side-by-side | Batch with 2 plugin paths |
 | Regression test the entire plugin portfolio | `batch-test.sh --plugins-dir ~/plugins --concurrency 2` |
 
+The key distinction: "batch testing" means testing multiple different plugins one after the other (or in parallel). "PHP matrix" means testing one plugin against multiple PHP versions. Both are covered below.
+
 ---
 
 ## 2. Batch Testing: batch-test.sh
 
-`batch-test.sh` runs the full gauntlet on multiple plugins in parallel. Each plugin gets its own isolated wp-env container on a unique port.
+Think of batch testing like a factory quality control line. Instead of inspecting one widget at a time by hand, you run all of them through the same set of automated checks simultaneously. Each plugin gets its own isolated wp-env container on a unique port, so they do not interfere with each other.
+
+`batch-test.sh` runs the full gauntlet on multiple plugins in parallel.
 
 ### Basic usage
+
+The commands below tell Orbit where your plugins live and how many to test at the same time. Run the first one if all your plugins are in one folder. Use the second if you want to name specific plugins individually.
 
 ```bash
 # Test all plugins in a directory
@@ -67,6 +79,12 @@ Ports are spaced 10 apart (`BASE_PORT + index * 10`) so Docker containers don't 
 
 ### Batch report
 
+After the run finishes, Orbit produces a summary table automatically. Open `reports/batch-TIMESTAMP.md` to see it. Here is what the columns mean:
+
+- **Status**: A checkmark means the plugin passed all checks. An X means something failed — click the log link to find out what.
+- **Pass / Warn / Fail**: How many individual checks passed, produced warnings, or failed for that plugin.
+- **Log**: A link to the full output for that plugin. Always check the log for any plugin that shows a Fail or unexpected warnings.
+
 ```markdown
 | Plugin    | Status | Pass | Warn | Fail | Log |
 |---|---|---|---|---|---|
@@ -75,7 +93,11 @@ Ports are spaced 10 apart (`BASE_PORT + index * 10`) so Docker containers don't 
 | plugin-c  | ✓      | 11   | 0    | 0    | [log](batch-logs/plugin-c.log) |
 ```
 
+Any plugin with a ✗ in the Status column needs attention before release. Do not ship a plugin that failed the batch run without understanding and resolving what failed.
+
 ### Viewing individual plugin logs
+
+If a plugin failed in the batch report, these commands let you dig into exactly what went wrong. The first shows the full output for a specific plugin; the second scans all logs at once for any failure-related lines.
 
 ```bash
 # View full output for plugin-b (which failed)
@@ -102,13 +124,22 @@ bash scripts/batch-test.sh --plugins-dir ~/plugins --concurrency 4  # max parall
 # Check before running with --concurrency 4 on < 8GB RAM machines
 ```
 
+> **Q: How much RAM does this use?**
+> Each running WordPress test environment (wp-env) uses approximately 500MB of RAM because it spins up two Docker containers: one for WordPress/PHP and one for the database. Running four plugins in parallel means roughly 2GB of RAM consumed during the test. If your machine has 8GB or less of total RAM, use `--concurrency 2` to avoid slowdowns or crashes.
+
 ---
 
 ## 3. PHP Version Matrix
 
+Think of the PHP version matrix like crash-testing your plugin in different car models. You develop on one version of PHP (say 8.1), but your users drive all sorts of cars — PHP 7.4, 8.0, 8.1, 8.2. A feature that works perfectly on your machine might throw a fatal error on a user's server running a different version. The matrix catches those problems before your users do.
+
+**Why does this matter?** PHP 7.4 is still running on approximately 30% of WordPress sites. That is roughly one in three of your potential users. If your plugin uses a function or syntax that was added in PHP 8.0, those users will see a white screen instead of your plugin. The PHP matrix catches this automatically.
+
 Test your plugin against PHP 7.4, 8.0, 8.1, and 8.2 to catch compatibility issues before users report them.
 
 ### Step 1: Create site directories
+
+This step creates four separate WordPress environments, each running a different PHP version. You only need to do this setup once — after that, you can reuse these environments.
 
 ```bash
 PLUGIN=~/plugins/my-plugin
@@ -161,6 +192,8 @@ EOF
 
 ### Step 2: Start all sites
 
+This command starts all four WordPress environments at the same time (the `&` at the end of each line means "run in the background"). The `wait` at the end pauses until all four have finished starting before continuing.
+
 ```bash
 (cd ~/.wp-env-matrix/php74 && wp-env start) &
 (cd ~/.wp-env-matrix/php80 && wp-env start) &
@@ -171,6 +204,8 @@ echo "All PHP versions started"
 ```
 
 ### Step 3: Run gauntlet against each
+
+This loop runs the Orbit gauntlet against each PHP version in sequence and saves the results to a separate log file for each version. The `tee` command lets you see the output in real time while also saving it to a file.
 
 ```bash
 PLUGIN=~/plugins/my-plugin
@@ -189,6 +224,8 @@ done
 ```
 
 ### Step 4: Compare results
+
+After all four runs complete, this command gives you a single-line pass/fail summary for each PHP version — the fastest way to spot which versions have problems.
 
 ```bash
 # Quick pass/fail summary
@@ -209,6 +246,8 @@ PHP 82: ⚠ GAUNTLET PASSED WITH WARNINGS
 
 ### Common PHP version issues
 
+The table below shows the most common problems that appear when moving between PHP versions. You do not need to memorize these — PHPStan (Step 3) and the PHPCompatibilityWP ruleset (Step 2) catch most of them automatically. But if you see a failure on a specific PHP version and are not sure why, this is your starting point for investigation.
+
 | PHP Version | Common Problems |
 |---|---|
 | PHP 7.4 → 8.0 | `count()` on null, `array_key_first()` behavior, `$_SERVER` type changes |
@@ -217,6 +256,9 @@ PHP 82: ⚠ GAUNTLET PASSED WITH WARNINGS
 | Any version | `create_function()` removed in 8.0, `each()` removed in 8.0 |
 
 PHPStan in Step 3 and the `PHPCompatibilityWP` PHPCS ruleset catch most of these automatically.
+
+> **Q: Do I need to run the PHP matrix every time, or just before major releases?**
+> You do not need to run it on every commit. Run it before any release that changes PHP-touching code — new functions, updated class structures, changes to hooks and filters. For minor releases that only fix CSS or update copy, skipping the matrix is reasonable. For any major version bump, always run it.
 
 ---
 
@@ -278,6 +320,8 @@ Test both versions side-by-side to ensure:
 2. Pro features are properly gated (not accessible in Free)
 3. Downgrade from Pro → Free doesn't break the site
 
+These commands create two separate WordPress environments running simultaneously — one with your free plugin, one with the pro version — then run the gauntlet against each.
+
 ```bash
 # Create two sites on different ports
 bash scripts/create-test-site.sh --plugin ~/plugins/my-plugin-free --port 8881 --site free
@@ -289,6 +333,8 @@ WP_TEST_URL=http://localhost:8882 bash scripts/gauntlet.sh --plugin ~/plugins/my
 ```
 
 ### Upgrade path test
+
+This sequence simulates the exact steps a real user takes when upgrading from free to pro. It creates data first (like a real user would have), then installs the pro version on top, and verifies the data survived. Always run this before a major pro release.
 
 ```bash
 # 1. Start with Free version
@@ -328,6 +374,8 @@ If you have a suite of plugins (like a plugin + companion extensions), test them
 }
 ```
 
+This configuration file tells wp-env to install and activate all of these plugins in the same WordPress environment. It mirrors what a real user would have installed on their site.
+
 ```bash
 # Start
 wp-env start
@@ -345,6 +393,8 @@ WP_TEST_URL=http://localhost:8881 npx playwright test tests/playwright/suite/
 2. **No shared option name collisions** — prefix check via skill
 3. **No JS handle conflicts** — check `wp_enqueue_script` handle names
 4. **Combined load time** — Lighthouse score with all active vs one at a time
+
+This command tests whether your plugins break if activated in an unexpected order. Some plugins have hidden dependencies on being activated first — this catches that.
 
 ```bash
 # Activation order test
@@ -402,6 +452,8 @@ Multi-plugin testing creates lots of Docker containers and uses disk space.
 
 ### Stop all containers
 
+Run this after a batch testing session to stop all running test environments. Stopped containers preserve their data (you can restart them later), but they free up the memory they were using.
+
 ```bash
 # Stop all wp-env containers
 for dir in ~/.wp-env-matrix/*/; do
@@ -416,6 +468,8 @@ done
 
 ### Destroy all test sites
 
+Run this when you are completely done with the test environments and want to reclaim disk space. Unlike `stop`, `destroy` removes all containers and their data permanently. You will need to recreate them with Step 1 of the matrix setup next time.
+
 ```bash
 # Nuclear — removes all containers and volumes
 for dir in ~/.wp-env-matrix/*/; do
@@ -426,6 +480,8 @@ rm -rf .wp-env-site/batch-*
 ```
 
 ### Reclaim Docker disk space
+
+Even after stopping or destroying containers, Docker holds onto layers and images to speed up future runs. These commands clean up that hidden disk usage. The first command is safe to run regularly. The second (with `-a`) is more aggressive and will force Docker to re-download images next time.
 
 ```bash
 # Remove unused containers, images, and volumes
@@ -439,6 +495,8 @@ docker system df
 ```
 
 ### Archive reports before cleanup
+
+Before deleting reports from a sprint, archive them so you have a record. This command zips everything into a dated archive file, then removes the raw logs and media files that take up the most space.
 
 ```bash
 # Zip all reports for this sprint

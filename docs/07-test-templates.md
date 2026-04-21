@@ -4,6 +4,65 @@
 
 ---
 
+**New to automated testing? Start here.**
+
+If you have never written a test before, this guide is written for you. You do not need to understand every line of code on first read. The goal is to get one test running, watch it pass, and build from there.
+
+> **Analogy: What is Playwright?**
+> Playwright is a robot that controls a real browser — Chrome, Firefox, or WebKit. It clicks buttons, fills in forms, navigates pages, and checks results, exactly like a human tester would, but it does it automatically every time you tell it to. Once you write the script once, you can run it in seconds instead of spending 20 minutes clicking through your plugin manually.
+
+> **Analogy: What is a spec file?**
+> A spec file is a script for that robot. You write out the steps — "go to this page, click this button, check that this text appears" — and the robot follows them exactly, every single time, without getting tired or skipping steps.
+
+> **Q: I've never written a test before — where do I start?**
+> Pick the template that matches your plugin type (Generic, Elementor, Gutenberg, etc.), copy it into your project, change the three `CHANGE ME` variables at the top, and run it with `--headed` so you can watch what happens in a real browser. You do not need to understand the full file. Start by running it, watch what it does, and then start tweaking.
+
+> **Q: What's the difference between a smoke test and a full test?**
+> A smoke test is the minimum check — "does the plugin activate without crashing, and does the admin page load?" A full test goes deeper: it saves settings, checks that they persist after a page reload, verifies that widgets appear, and confirms there are no JavaScript errors or broken assets. All the templates in this guide start with smoke-level checks and build toward full tests.
+
+> **Q: Do I have to test every single feature?**
+> No. Focus on the things that would be catastrophic if they broke silently — plugin activation, admin panel loading, settings saving, and the core feature your plugin is built around. Coverage you don't have is better than tests that exist but don't actually check anything meaningful (see the "What makes a good test" section below).
+
+---
+
+## What Makes a Good Test
+
+Before diving into the templates, it is worth understanding what separates a test that actually protects you from a test that passes without checking anything meaningful.
+
+**A good test:**
+- Checks a specific outcome that would be wrong if something broke. For example: after saving a setting, reload the page and confirm the value is still there. This catches the case where save appears to work but the data never actually writes to the database.
+- Fails loudly when something real is wrong. A test that always passes — even when you introduce a bug — is worse than no test at all, because it gives you false confidence.
+- Tests one thing at a time. If a test fails, you should immediately know what broke.
+
+**A weak test:**
+- Only checks that a page "loads" without checking what's on it. A page full of PHP errors still "loads."
+- Uses `await page.waitForTimeout(3000)` instead of waiting for a specific element to appear. Arbitrary sleeps hide real timing bugs.
+- Has no assertions — it navigates around but never uses `expect(...)` to verify anything.
+
+**Example — weak vs. good:**
+
+Weak (checks nothing meaningful):
+```javascript
+test('admin page loads', async ({ page }) => {
+  await page.goto('/wp-admin/admin.php?page=my-plugin');
+  // No assertion. Will pass even if the page shows a fatal error.
+});
+```
+
+Good (checks what actually matters):
+```javascript
+test('admin page loads without errors', async ({ page }) => {
+  await page.goto('/wp-admin/admin.php?page=my-plugin');
+  await assertPageReady(page, 'admin panel');
+  const body = await page.evaluate(() => document.body.innerText);
+  expect(body).not.toMatch(/PHP Warning|PHP Fatal|Parse error/i);
+});
+```
+
+The second test will fail if a PHP fatal error appears on the page — which is exactly what you want.
+
+---
+
 ## Table of Contents
 
 1. [How Templates Work](#1-how-templates-work)
@@ -23,6 +82,10 @@
 ---
 
 ## 1. How Templates Work
+
+The steps below walk you through copying a template, making it point at your plugin, and running it for the first time. Do these in order.
+
+First, copy the template folder that best matches your plugin type. Replace `my-plugin` with a folder name that matches your plugin:
 
 ```bash
 # Copy the closest template for your plugin type
@@ -44,7 +107,14 @@ WP_TEST_URL=http://localhost:8881 npx playwright test tests/playwright/my-plugin
 npx playwright test --ui
 ```
 
+The `--headed` flag makes Playwright open a real browser window so you can see exactly what is happening. Use this while getting started. Once your tests are stable, you can drop `--headed` and let them run silently in the background.
+
+The `--ui` flag opens Playwright's interactive UI mode, which automatically re-runs tests every time you save the file. This is the fastest way to iterate while writing new tests.
+
 ### Auth is automatic
+
+> **Analogy: What is auth.setup.js?**
+> Logging into WordPress for every single test would be slow and repetitive. `auth.setup.js` logs in once at the start of the test run and saves the login cookie to a file (`.auth/wp-admin.json`). Every subsequent test reads that saved cookie and skips the login screen entirely — like having a keycard that lets you into the building without signing in at reception every time.
 
 All templates use the pre-saved admin cookies from `.auth/wp-admin.json`. The setup project runs once and all tests share the same auth state — no re-login needed.
 
@@ -52,7 +122,9 @@ All templates use the pre-saved admin cookies from `.auth/wp-admin.json`. The se
 
 ## 2. Template: Generic Plugin
 
-For any plugin that doesn't fit a specific category.
+For any plugin that doesn't fit a specific category. This is the best starting point if you are unsure which template to use.
+
+The template is organized into clearly labeled sections: activation, admin panel, settings, frontend, and deactivation. You can delete sections that don't apply to your plugin, and add new sections for your plugin's specific features.
 
 ```javascript
 // tests/playwright/my-plugin/core.spec.js
@@ -214,6 +286,11 @@ test.describe(`${PLUGIN_NAME} — Core Tests`, () => {
 
 ## 3. Template: Elementor Addon
 
+> **Analogy: What is assertPageReady()?**
+> `assertPageReady()` is like waiting for a webpage to fully load before you start clicking. If you try to click a button that hasn't appeared yet, the test fails with a confusing "element not found" error. `assertPageReady()` waits for the page to be in a usable state — no login redirect, no PHP errors, no empty body — before proceeding. It prevents a whole class of false failures caused by tests running too fast.
+
+This template covers Elementor addons — plugins that add widgets to the Elementor editor panel. The key tests here are: do your widgets appear in the panel search, do they render on the frontend, and do they look correct across desktop, tablet, and mobile viewports.
+
 ```javascript
 // tests/playwright/my-plugin/core.spec.js
 const { test, expect } = require('@playwright/test');
@@ -362,6 +439,10 @@ test.describe('Elementor Addon — Core Tests', () => {
 
 ## 4. Template: Gutenberg Blocks
 
+This template covers plugins that register blocks for the WordPress block editor (Gutenberg). The key tests check that blocks appear in the inserter, can be added to a post, and render correctly on the frontend without PHP errors.
+
+Notice the `block styles not loaded on non-block pages` test — this catches the common mistake of loading all block assets on every page, even pages that don't use the blocks. That mistake slows down every page on the site.
+
 ```javascript
 // tests/playwright/my-plugin/core.spec.js
 const { test, expect } = require('@playwright/test');
@@ -485,6 +566,9 @@ test.describe('Gutenberg Blocks — Core Tests', () => {
 ## 5. Template: SEO Plugin + Competitor Comparison
 
 The SEO template uses the `PAIR-NN` naming convention to generate a side-by-side comparison report.
+
+> **Analogy: The PAIR naming convention**
+> Think of it like labeling "before/after" photos in a product comparison. `pair-01-a` is your plugin's dashboard screenshot. `pair-01-b` is the competitor's dashboard screenshot, taken in the same way. When the report generator sees both files with the same pair number, it places them side by side automatically. This lets a product manager or founder look at both plugins visually without reading code.
 
 **How it works**:
 1. Run `Discovery` tests for both plugins → get exact nav URLs
@@ -659,6 +743,8 @@ test('Frontend — OG / schema / canonical on homepage', async ({ page }) => {
 
 ## 6. Template: WooCommerce Extension
 
+This template covers plugins that extend WooCommerce — adding tabs to the WooCommerce settings screen, modifying the cart or checkout, or adding new product types. The critical tests here are shop page loading without errors, the add-to-cart flow working end-to-end, and any REST endpoints your plugin exposes being properly protected with authentication.
+
 ```javascript
 // tests/playwright/my-plugin/core.spec.js
 const { test, expect } = require('@playwright/test');
@@ -770,6 +856,10 @@ test.describe('WooCommerce Extension — Core Tests', () => {
 ---
 
 ## 7. Template: REST API Plugin
+
+This template is for plugins that register custom REST API endpoints. The tests verify that your namespace is discoverable, public endpoints return data, protected endpoints properly reject unauthenticated requests, and the API handles bad input gracefully rather than returning a 500 server error.
+
+A 500 error from an API endpoint is almost always a bug — good APIs return structured error messages with appropriate status codes like 400 (bad request) or 404 (not found).
 
 ```javascript
 // tests/playwright/my-plugin/core.spec.js
@@ -883,6 +973,8 @@ test.describe('REST API Plugin — Core Tests', () => {
 
 ## 8. Template: Theme / FSE Plugin
 
+This template covers WordPress themes and Full Site Editing (FSE) plugins. FSE (Full Site Editing) is WordPress's system for editing your entire site — headers, footers, templates — using the block editor. The tests check that the Site Editor loads, color palettes from `theme.json` appear correctly, and there is no content overflow or flash of unstyled content on mobile.
+
 ```javascript
 // tests/playwright/my-plugin/core.spec.js
 const { test, expect } = require('@playwright/test');
@@ -969,7 +1061,12 @@ test.describe('Theme / FSE Plugin — Core Tests', () => {
 
 ## 9. Visual Regression Testing
 
+> **Analogy: What are visual snapshot tests?**
+> Think of visual snapshots as taking a photo of what the page should look like. On the first run, Playwright takes a "golden" screenshot and saves it as the baseline. On every future run, it takes a new screenshot and compares it to the baseline pixel by pixel. If the page looks different — a button moved, a color changed, a layout broke — the test fails and shows you exactly what changed. This catches visual regressions that functional tests miss entirely, because a broken layout can still "pass" if all the elements are technically present on the page.
+
 Visual regression saves a "golden" screenshot on first run and diffs against it on every subsequent run.
+
+The first time you run a visual test, no baseline exists yet, so Playwright creates one. The test will always pass on the first run. From the second run onward, it compares against that saved baseline.
 
 ```javascript
 // tests/playwright/visual/snapshots.spec.js
@@ -1019,7 +1116,8 @@ test.describe('Visual Regression', () => {
 
 **Subsequent runs** — diffs against baseline. Fails if > `maxDiffPixelRatio` different.
 
-**Intentional UI change** — update the baseline:
+**Intentional UI change** — when you deliberately change the UI and need to update the baseline, run this command. It replaces the old "golden" screenshots with the new ones:
+
 ```bash
 npx playwright test tests/playwright/visual/ --update-snapshots
 ```
@@ -1027,6 +1125,13 @@ npx playwright test tests/playwright/visual/ --update-snapshots
 ---
 
 ## 10. Accessibility Testing (axe-core)
+
+**Jargon buster:**
+- **WCAG** (Web Content Accessibility Guidelines) — the international standard for making web content accessible to people with disabilities. Version 2.2 AA is the most widely required level.
+- **ARIA** (Accessible Rich Internet Applications) — a set of HTML attributes that tell screen readers what an element does. For example, `aria-label="Close dialog"` tells a screen reader that a button closes a dialog, even if the button only shows an X icon.
+- **axe-core** — an open-source library that automatically checks a page for common accessibility violations. It catches things like missing alt text on images, form fields without labels, and insufficient color contrast.
+
+The tests below run axe-core against your admin panel and frontend. The goal is to catch accessibility problems your plugin introduces, not problems that exist in WordPress core itself — which is why the tests filter results to only flag issues in your plugin's own markup.
 
 ```javascript
 // tests/playwright/my-plugin/a11y.spec.js
@@ -1111,6 +1216,10 @@ test.describe('Accessibility — WCAG 2.2 AA', () => {
 
 Flow tests record video, capture `pair-NN-slug-a/b.png` screenshots, and generate a PM-friendly HTML report.
 
+These are the most valuable tests for sharing with non-technical stakeholders. A product manager can open the HTML report and watch videos of both plugins completing the same tasks side by side, without looking at any code.
+
+Before running flow tests, make sure you have set `PLUGIN_A` and `PLUGIN_B` to the correct admin slugs for your plugin and the competitor. Run the Discovery tests first if you are not sure what the slugs are.
+
 ```javascript
 // tests/playwright/flows/my-feature/core.spec.js
 const { test, expect } = require('@playwright/test');
@@ -1158,7 +1267,7 @@ test.describe('Feature Comparison Flow', () => {
 });
 ```
 
-Generate the HTML report:
+Once your flow tests have run and the screenshots and videos are in the `reports/` folder, generate the HTML report with this command. The first line builds the report file, and the second line opens it in your browser:
 
 ```bash
 python3 scripts/generate-uat-report.py \
@@ -1174,6 +1283,8 @@ open reports/uat-report-*.html
 
 ## 12. Helper Functions Reference
 
+These are the utility functions available in `../helpers` that all templates use. You do not need to understand how they are implemented — just know what each one does and when to call it.
+
 | Function | Signature | What it does |
 |---|---|---|
 | `assertPageReady(page, context)` | `(page, string)` | Throws on login redirect, PHP errors, or empty page body |
@@ -1186,11 +1297,15 @@ open reports/uat-report-*.html
 | `snapPair(page, num, slug, side, dir, extra?)` | `(page, int, string, 'a'\|'b', string, string?)` | Saves screenshot with `pair-NN-slug-a/b[-extra].png` naming |
 | `checkFrontend(page, url)` | `(page, string)` | Returns `{title, metaDesc, canonical, ogTitle, schemaTypes, ...}` |
 
+The table above shows every helper function you might use in a test. The most important ones for beginners are `assertPageReady` (use it after every page navigation) and `gotoAdmin` (use it instead of writing `page.goto('/wp-admin/admin.php?page=...')` manually every time). The `discoverNavLinks` function is especially useful when you are getting started and do not yet know the exact URLs for your plugin's settings pages — run it once and it will print them all.
+
 ---
 
 ## 13. Test Projects Reference
 
-From `playwright.config.js` — choose which project to run:
+Playwright's `playwright.config.js` defines multiple "projects" — different configurations for running your tests. Think of a project as a preset: it sets the browser, the viewport, whether to record video, and which test files to run.
+
+To run all projects at once (the default), just run `npx playwright test`. To run only specific types of tests, use the `--project` flag:
 
 ```bash
 # All projects (default)
@@ -1217,6 +1332,8 @@ npx playwright test --project=chromium --project=mobile-chrome
 | `tablet` | `responsive.spec.js` | Admin | No |
 | `video` | `flows/**/*.spec.js` | Admin | Always |
 | `elementor-widgets` | `elementor/**/*.spec.js` | Admin | Always |
+
+The table shows which test files each project runs and whether it records video. The `setup` project always runs first (it logs in and saves the auth cookie). The `video` project always records — this is intentional, because flow tests are meant to produce video evidence for stakeholder reviews. For all other projects, video is only recorded on failure so you can see what went wrong.
 
 ---
 
