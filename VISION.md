@@ -126,6 +126,7 @@ Orbit never hardcodes a plugin slug, brand, or path. Every script takes `<plugin
 
 | Category | Checks | Status |
 |---|---|---|
+| **Supply-chain defense** | Plugin ownership-transfer detection (git history) + Live CVE correlation (NVD + WPScan free feeds, 24h cache) | ✅ shipped |
 | Static analysis | 5 (lint, PHPCS, PHPStan, zip-hygiene, **PHP 8.0-8.5 compat**) | ✅ shipped |
 | Release gate | 9 (header, readme.txt, version parity, license, block.json, HPOS, **WP function compat, modern WP, Requires Plugins**) | ✅ shipped |
 | Functional E2E | 15 Playwright specs (+ **bundle-size** per page) | ✅ shipped |

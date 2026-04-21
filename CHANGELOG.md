@@ -8,6 +8,21 @@ All notable changes to Orbit follow [Keep a Changelog](https://keepachangelog.co
 
 ---
 
+## [2.3.0] — 2026-04-21 — "Unique Layer"
+
+First two capabilities nobody else ships. Both are **free forever** — uses NVD + WPScan public feeds, no API keys, no paid tier.
+
+### Added
+- **`scripts/check-ownership-transfer.sh`** — reads plugin main-file git history, flags when Author / Author URI / Plugin Name headers change between commits. Defends against the April 2026 EssentialPlugin attack vector (attacker buys plugin → pushes backdoored update weeks later). First static detection in the WP ecosystem.
+- **`scripts/check-live-cve.sh`** — pulls NVD (NIST National Vulnerability Database) + WPScan public feeds for last 60 days of WordPress CVEs, correlates against plugin code. Caches 24h. Optional `WPSCAN_API_TOKEN` for higher-rate auth. Turns Orbit from release-time tool into continuous security posture tool.
+- Both scripts wired into gauntlet release mode (`--mode full|release`).
+
+### Verified
+- `check-live-cve.sh` self-tested: 100 recent WP CVEs ingested, correctly correlated 5 deliberate vulns in test plugin (XSS, SQLi, nopriv AJAX, unserialize, missing nonce) with real CVE matches.
+- `check-ownership-transfer.sh` self-tested: correctly skipped on non-plugin repos, flags Author/URI/Name header drift across git history.
+
+---
+
 ## [2.2.0] — 2026-04-21 — "Mature Release"
 
 The release where Orbit closes every deep-research gap. Covers WP.org

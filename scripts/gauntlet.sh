@@ -151,6 +151,20 @@ if [ "$MODE" = "full" ] || [ "$MODE" = "release" ]; then
   else
     log "- ⚠ Modern WP: warnings"; ((WARN++))
   fi
+
+  # Plugin ownership transfer detection (April 2026 supply-chain defense)
+  if bash scripts/check-ownership-transfer.sh "$PLUGIN_PATH" 2>&1; then
+    log "- ✓ Ownership stable"; ((PASS++))
+  else
+    log "- ✗ Ownership transfer detected — manual review required"; ((FAIL++))
+  fi
+
+  # Live CVE correlation (NVD + WPScan public feeds)
+  if bash scripts/check-live-cve.sh "$PLUGIN_PATH" 2>&1; then
+    log "- ✓ Live CVE correlation: clean"; ((PASS++))
+  else
+    log "- ⚠ Live CVE correlation: matching patterns found"; ((WARN++))
+  fi
 fi
 
 # ── STEP 1b: ZIP HYGIENE + SUPPLY CHAIN + FORBIDDEN FUNCTIONS ────────────────
