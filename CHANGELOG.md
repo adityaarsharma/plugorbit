@@ -8,6 +8,23 @@ All notable changes to Orbit follow [Keep a Changelog](https://keepachangelog.co
 
 ---
 
+## [2.4.0] — 2026-04-22 — "PM UX Quality"
+
+Three new PM-perspective checks that close the gap between "does it work" and "does it feel right." All checks are **warn severity** — PMs decide, never hard-blocks.
+
+### Added
+- **`tests/playwright/pm/spell-check.spec.js`** — crawls every plugin admin page, extracts all visible UI text (labels, buttons, tooltips, notices, headings, placeholders), checks against a 60-entry built-in typo dictionary, optionally deepens with `cspell`. Output: `reports/pm-ux/spell-check-findings.json`.
+- **`tests/playwright/pm/guided-ux.spec.js`** — scores the plugin's onboarding quality 0–10 across 7 signals (wizard, welcome screen, tooltips, inline help, placeholder text, empty-state messaging, help tab). Benchmarks against Yoast SEO (8/10), RankMath (9/10), WooCommerce (8/10), WPForms (9/10), Gravity Forms (8/10), Jetpack (7/10), AIOSEO (8/10). Output: `reports/pm-ux/guided-ux-score.json`.
+- **`tests/playwright/pm/label-audit.spec.js`** — flags 9 anti-pattern classes (vague buttons, double negatives, WP jargon, ambiguous toggles, inconsistent save labels, ALL CAPS abuse, etc.), benchmarks terminology against `config/pm-ux/competitor-terms.json`, and checks logical ordering of select/radio option groups. Output: `reports/pm-ux/label-audit-findings.json`.
+- **`config/pm-ux/competitor-terms.json`** — 10-competitor UI terminology database (Yoast SEO, RankMath, Elementor, WooCommerce, WPForms, Gravity Forms, MonsterInsights, Jetpack, ContactForm7, AIOSEO). Covers nav labels, button labels, field labels, error messages, toggle labels, section headings. Each entry lists the industry-standard term, which competitors use it, and the anti-patterns to avoid.
+- **`config/pm-ux/cspell.json`** — cspell configuration with WP-ecosystem allowlist (wordpress, elementor, gutenberg, nonce, transient, wpdb, and 30+ plugin-specific terms).
+- **`scripts/pm-ux-audit.sh`** — orchestrates all 3 Playwright PM specs, reads JSON outputs, prints a summary, generates the HTML report. Usage: `bash scripts/pm-ux-audit.sh [--url http://localhost:8881] [--slug plugin-slug]`.
+- **`scripts/generate-pm-ux-report.py`** — Python HTML report generator, consistent with the existing `generate-uat-report.py` pattern. Three sections (spell-check, guided UX, label audit), color-coded summary cards, competitor comparison table.
+- **Gauntlet Step 12** — `scripts/gauntlet.sh` now runs the PM UX Audit as Step 12 in `full` + `local` mode. Exits 0 (issues are PM-flagged warnings, not CI failures).
+- **`VISION.md`** updated with PM UX Quality row in the coverage matrix.
+
+---
+
 ## [2.3.0] — 2026-04-21 — "Unique Layer"
 
 First two capabilities nobody else ships. Both are **free forever** — uses NVD + WPScan public feeds, no API keys, no paid tier.

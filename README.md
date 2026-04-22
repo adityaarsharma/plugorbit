@@ -24,7 +24,7 @@
 
 ---
 
-**v2.3.0 · April 2026 · Unique Layer** — 22 security patterns · 20+ Playwright specs · 5 custom Claude skills · auto-scaffolder reading your plugin code · **plugin ownership-transfer detection** (April 2026 attack defense, first in the WP ecosystem) · **live CVE correlation** (free, via NVD + WPScan public feeds — no API keys). Covers WP.org plugin-check rules, Patchstack 2025 top-5 vulns, WP 6.5→7.0 features, PHP 8.0→8.5.
+**v2.4.0 · April 2026 · Unique Layer** — 22 security patterns · 20+ Playwright specs · 5 custom Claude skills · auto-scaffolder reading your plugin code · **plugin ownership-transfer detection** (April 2026 attack defense, first in the WP ecosystem) · **live CVE correlation** (free, via NVD + WPScan public feeds — no API keys) · **PM UX Audit** (spell-check + guided experience score + label benchmarking vs 10 top WP plugins). Covers WP.org plugin-check rules, Patchstack 2025 top-5 vulns, WP 6.5→7.0 features, PHP 8.0→8.5.
 
 🎯 **[Use Cases](docs/24-use-cases.md)** (25 real scenarios · Dev/QA/PM/PA/Designer/Release-Ops) &nbsp;·&nbsp; 🧩 **[Extending Orbit](docs/23-extending-orbit.md)** (how to add checks, write specs, create skills)
 
@@ -52,6 +52,7 @@ One command and you get:
 - ✅ Competitor analysis from wordpress.org (catches when you fall behind)
 - ✅ Claude Code skill integration — 30+ `/slash` commands for AI-assisted audit (catches what humans miss)
 - ✅ PM flow mapping — click-depth, wizard detection, complexity scoring per feature vs competitors
+- ✅ **PM UX Audit** — spell-check all UI text + guided experience score (0–10) + label benchmarking vs Yoast, RankMath, WooCommerce, WPForms and 6 more
 - ✅ Designer layer — pixel-diff visual regression across admin, editor, and frontend at every viewport
 - ✅ Mass parallel mode — test 5 plugins at once on your own Mac, CPU-throttled
 - ✅ Zero hardcoding — works for any WP plugin type (Elementor, Gutenberg, SEO, WooCommerce, themes)
@@ -170,6 +171,118 @@ No commands to memorize — read `reports/qa-report-{timestamp}.md` after every 
 | **Label + Option Ordering** | Confusing labels, illogically ordered select/radio/checkbox options | Flagged list per form | Admin audit |
 
 **PM workflow**: before every release, open the latest gauntlet report + `reports/pm-ux/pm-ux-report-*.html` → check score deltas → sign off on the pre-release checklist. No terminal needed.
+
+---
+
+### 🆕 PM UX Audit — Step 12 of the Gauntlet
+
+Orbit's newest layer. Runs automatically in `--mode full`. Three Playwright-based checks that catch the kind of quality issues that land in 1-star reviews:
+
+#### Run standalone
+
+```bash
+# Full gauntlet includes it automatically
+bash scripts/gauntlet.sh --plugin ~/plugins/my-plugin
+
+# Run PM UX checks only
+WP_TEST_URL=http://localhost:8881 \
+PLUGIN_ADMIN_SLUG=my-plugin-slug \
+bash scripts/pm-ux-audit.sh
+```
+
+#### 1. Spell-Check Scan
+
+Extracts every visible string from the plugin admin — labels, buttons, tooltips, placeholders, headings, notices — and checks for typos.
+
+```
+❌ "seting" → "setting"          [label] on /wp-admin/admin.php?page=my-plugin
+❌ "intergration" → "integration" [heading] on /wp-admin/admin.php?page=my-plugin-advanced
+❌ "recieve" → "receive"          [notice] on /wp-admin/admin.php?page=my-plugin
+```
+
+- Built-in dictionary of 60 most common WP plugin UI typos
+- Optionally runs `cspell` for deeper coverage (install: `npm i -g cspell`)
+- Output: `reports/pm-ux/spell-check-findings.json`
+
+#### 2. Guided Experience Score
+
+Scans for guidance signals across every admin page and scores the product 0–10. Compares against 7 top WP plugins.
+
+```
+[Guided UX] Score: 4/10  ████░░░░░░  (Competitor avg: 8/10)
+
+  ✓ Present (2):
+     • Inline Help Text (+2pts)
+     • Placeholder Text (+1pt)
+
+  ✗ Missing (5) — users are navigating these alone:
+     • Setup Wizard (would add +3pts)
+       A step-by-step setup flow for first-time users.
+       → RankMath, WooCommerce, WPForms all use a wizard. Score +3.
+
+     • Welcome / Onboarding Screen (would add +2pts)
+       → RankMath, MonsterInsights, Elementor show a welcome screen on first activate.
+
+     • Tooltips / Info Icons (would add +2pts)
+       → Yoast SEO, WooCommerce, WPForms use "?" icons next to every setting.
+
+  Competitors with better guidance:
+     • RankMath: 9/10  (you are 5 points behind)
+     • WPForms: 9/10   (you are 5 points behind)
+     • Elementor: 9/10 (you are 5 points behind)
+```
+
+Signals scored: setup wizard (+3), welcome screen (+2), tooltips (+2), inline help text (+2), placeholder text (+1), empty-state guidance (+2), WP Help tab (+1).
+
+#### 3. Label & Terminology Audit
+
+Benchmarks every label, button, nav item, and option against `config/pm-ux/competitor-terms.json` — industry-standard terminology from 10 top WP plugins.
+
+```
+[Label Audit] 7 issue(s) found across 4 page(s)
+
+  Anti-patterns: 4 (2 high severity)
+  ❌ [button] "Submit" is a vague button label. Use "Save Settings".
+      → WooCommerce, WPForms, Yoast SEO all use specific verbs.
+  ❌ [button] "Toggle" is ambiguous. Use "Enable [Feature]" or "Disable [Feature]".
+      → Jetpack, WooCommerce, Yoast SEO always name their toggles.
+  ⚠  [label] "Enqueue scripts" contains PHP jargon. Use "Load Scripts".
+      → WooCommerce, WPForms translate dev-terms into user-friendly language.
+  ⚠  [nav] "Config" — industry standard is "Settings" (Yoast, WooCommerce, WordPress Core).
+
+  Terminology vs competitors: 2
+  ⚠  [button] "Apply" — industry standard is "Save Settings" (Yoast SEO, WooCommerce, RankMath).
+  ⚠  [nav] "Utilities" — industry standard is "Tools" (Yoast SEO, WooCommerce, RankMath).
+
+  Option ordering: 1 group out of logical order
+  ⚠  "Cache Duration" → current: [Monthly, Daily, Never, Weekly]
+     suggested: [Never, Daily, Weekly, Monthly]
+     → WooCommerce, WPForms order options logically: None → Low → High → Custom.
+```
+
+Anti-patterns caught: vague buttons (Submit/OK/Go), double negatives, PHP jargon (enqueue/nonce/transient), ambiguous toggles, ALL CAPS abuse, tech abbreviations, non-specific "Enable" labels.
+
+#### Output: PM UX HTML Report
+
+After every run, one HTML report opens in browser — no terminal needed for the PM:
+
+```
+open reports/pm-ux/pm-ux-report-<timestamp>.html
+```
+
+Contains: typo count + list, guidance score card with competitor comparison, full label findings table. Share with your PM, they read it like a test report.
+
+#### Competitor terms database
+
+`config/pm-ux/competitor-terms.json` — the brain of the system. Contains industry-standard labels from:
+
+**Yoast SEO · RankMath · Elementor · WooCommerce · WPForms · Gravity Forms · MonsterInsights · Jetpack · ContactForm7 · AIOSEO**
+
+Covers: nav labels, button labels, field labels, error messages, toggle labels, section headings. When Orbit flags a term, it names which competitor uses the correct one.
+
+Add your own competitors by editing this file — the format is self-explanatory.
+
+---
 
 ### For End Users (via Real Browser Testing)
 
@@ -310,14 +423,20 @@ Exit codes: `0` = all passed · `1` = failures found (do not release)
 ### Gauntlet Steps (What Runs in Order)
 
 ```
-Step 1  PHP Lint           → syntax errors in every .php file
-Step 2  PHPCS              → WordPress + VIP coding standards
-Step 3  PHPStan            → static analysis (level 5)
-Step 4  Asset Weight       → JS/CSS bundle sizes
-Step 5  i18n / POT         → translatable strings + text domain check (wp-cli)
-Step 6  Playwright Tests   → functional + visual regression
-Step 7  Lighthouse         → Core Web Vitals scores
-Step 8  DB Profiling       → query count + slow query log
+Step 1   PHP Lint           → syntax errors in every .php file
+Step 1a  Release Metadata   → header, readme.txt, version parity, license, HPOS, WP compat
+Step 1b  Zip Hygiene        → dev files, forbidden functions, supply-chain audit
+Step 2   PHPCS              → WordPress + VIP coding standards
+Step 3   PHPStan            → static analysis (level 5)
+Step 4   Asset Weight       → JS/CSS bundle sizes
+Step 5   i18n / POT         → translatable strings + text domain check (wp-cli)
+Step 6   Playwright Tests   → functional + visual regression + flow videos
+Step 7   Lighthouse         → Core Web Vitals scores
+Step 8   DB Profiling       → query count + slow query log + memory + cron + GDPR
+Step 9   Competitor         → side-by-side comparison of competitor plugins
+Step 10  UI Performance     → editor load time (Elementor/Gutenberg) + frontend TTFB
+Step 11  Claude Skills      → 6 parallel AI audits (security, perf, DB, a11y, standards, quality)
+Step 12  PM UX Audit        → spell-check + guided experience score + label benchmarking
 ```
 
 ### Changelog-Based Tests
@@ -968,7 +1087,8 @@ Full list + install guide: [docs/power-tools.md](docs/power-tools.md).
 Orbit is designed to grow. Tracked ideas:
 
 ### Near-term
-- [ ] **Plugin Check integration** — run [WordPress/plugin-check](https://github.com/WordPress/plugin-check) as Step 9 of gauntlet (mirrors wordpress.org submission checks)
+- [x] **PM UX Audit (Step 12)** — spell-check, guided experience score, label benchmarking vs 10 top WP plugins ✅ shipped v2.4.0
+- [ ] **Plugin Check integration** — run [WordPress/plugin-check](https://github.com/WordPress/plugin-check) as a gauntlet step (mirrors wordpress.org submission checks)
 - [ ] **Mutation testing** — via Infection PHP to catch weak tests
 - [ ] **Release note auto-generator** — from Playwright diffs + changelog, produce a marketable changelog
 - [ ] **Multi-site matrix testing** — run gauntlet across `PHP × WP × WooCommerce` combinations via wp-env
